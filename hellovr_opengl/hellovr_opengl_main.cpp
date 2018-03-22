@@ -13,6 +13,7 @@
 #include <GL/glu.h>
 #endif
 #include <stdio.h>
+#include <sstream>
 #include <string>
 #include <cstdlib>
 #include <fstream>
@@ -784,14 +785,19 @@ GLuint CMainApplication::CompileGLShader( const char *pchShaderName, const char 
 	glShaderSource( nSceneFragmentShader, 1, &pchFragmentShader, NULL);
 	glCompileShader( nSceneFragmentShader );
 
-	GLint fShaderCompiled = GL_FALSE;
-	glGetShaderiv( nSceneFragmentShader, GL_COMPILE_STATUS, &fShaderCompiled);
-	if (fShaderCompiled != GL_TRUE)
+	GLint success = 0;
+	glGetShaderiv(nSceneFragmentShader, GL_COMPILE_STATUS, &success);
+	if (success == GL_FALSE)
 	{
-		dprintf("%s - Unable to compile fragment shader %d!\n", pchShaderName, nSceneFragmentShader );
-		glDeleteProgram( unProgramID );
-		glDeleteShader( nSceneFragmentShader );
-		return 0;	
+		dprintf("Failed to compile scene shader\n");
+		GLint logSize = 0;
+		glGetShaderiv(nSceneFragmentShader, GL_INFO_LOG_LENGTH, &logSize);
+
+		std::vector<GLchar> errorLog(logSize);
+		glGetShaderInfoLog(nSceneFragmentShader, logSize, &logSize, &errorLog[0]);
+		dprintf(reinterpret_cast<char*>(errorLog.data()));
+
+		return -1;
 	}
 
 	glAttachShader( unProgramID, nSceneFragmentShader );
@@ -821,7 +827,6 @@ GLuint CMainApplication::CompileGLShader( const char *pchShaderName, const char 
 bool CMainApplication::CreateAllShaders()
 {
 	raycastShader = LoadRaycastShader();
-	dprintf(raycastShader.c_str());
 
 	m_unSceneProgramID = CompileGLShader(
 		"Scene",
@@ -842,18 +847,8 @@ bool CMainApplication::CreateAllShaders()
 		raycastShader.c_str()
 		);
 
-	GLint success = 0;
-	glGetShaderiv(m_unSceneProgramID, GL_COMPILE_STATUS, &success);
-	if (success != GL_TRUE)
-	{
-		GLint* logSize = 0;
-		glGetShaderiv(m_unSceneProgramID, GL_INFO_LOG_LENGTH, logSize);
-
-
-	}
-
 	if (m_unSceneProgramID == -1) {
-		dprintf("Failed to compile scene shader\n");
+		dprintf("Failed to compile scene shader program\n");
 		return false;
 	}
 

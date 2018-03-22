@@ -1,0 +1,16 @@
+Determining if the C compiler works failed with the following output:
+Change Dir: C:/Users/Joosep Jääger/Desktop/project/hellovr_opengl/cmake-build-debug/CMakeFiles/CMakeTmp
+
+Run Build Command:"D:/Joosep/MinGW/mingw64/bin/mingw32-make.exe" "cmTC_68e69/fast"
+D:/Joosep/MinGW/mingw64/bin/mingw32-make.exe -f CMakeFiles\cmTC_68e69.dir\build.make CMakeFiles/cmTC_68e69.dir/build
+mingw32-make.exe[1]: Entering directory 'C:/Users/Joosep Jõõger/Desktop/project/hellovr_opengl/cmake-build-debug/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_68e69.dir/testCCompiler.c.obj
+D:\Joosep\MinGW\mingw64\bin\gcc.exe    -o CMakeFiles\cmTC_68e69.dir\testCCompiler.c.obj   -c "C:\Users\Joosep J├ż├żger\Desktop\project\hellovr_opengl\cmake-build-debug\CMakeFiles\CMakeTmp\testCCompiler.c"
+gcc.exe: error: C:\Users\Joosep J├ż├żger\Desktop\project\hellovr_opengl\cmake-build-debug\CMakeFiles\CMakeTmp\testCCompiler.c: No such file or directory
+gcc.exe: fatal error: no input files
+compilation terminated.
+mingw32-make.exe[1]: *** [CMakeFiles\cmTC_68e69.dir\build.make:65: CMakeFiles/cmTC_68e69.dir/testCCompiler.c.obj] Error 1
+mingw32-make.exe[1]: Leaving directory 'C:/Users/Joosep Jõõger/Desktop/project/hellovr_opengl/cmake-build-debug/CMakeFiles/CMakeTmp'
+mingw32-make.exe: *** [Makefile:125: cmTC_68e69/fast] Error 2
+
+
