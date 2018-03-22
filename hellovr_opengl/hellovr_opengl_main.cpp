@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string>
 #include <cstdlib>
+#include <fstream>
 
 #include <openvr.h>
 
@@ -100,6 +101,7 @@ public:
 	void RenderStereoTargets();
 	void RenderCompanionWindow();
 	void RenderScene( vr::Hmd_Eye nEye );
+	std::string LoadRaycastShader();
 
 	Matrix4 GetHMDMatrixProjectionEye( vr::Hmd_Eye nEye );
 	Matrix4 GetHMDMatrixPoseEye( vr::Hmd_Eye nEye );
@@ -120,6 +122,8 @@ private:
 	bool m_bPerf;
 	bool m_bVblank;
 	bool m_bGlFinishHack;
+
+	std::string raycastShader;
 
 	vr::IVRSystem *m_pHMD;
 	vr::IVRRenderModels *m_pRenderModels;
@@ -816,7 +820,10 @@ GLuint CMainApplication::CompileGLShader( const char *pchShaderName, const char 
 //-----------------------------------------------------------------------------
 bool CMainApplication::CreateAllShaders()
 {
-	m_unSceneProgramID = CompileGLShader( 
+	raycastShader = LoadRaycastShader();
+	dprintf(raycastShader.c_str());
+
+	m_unSceneProgramID = CompileGLShader(
 		"Scene",
 
 		// Vertex Shader
@@ -832,14 +839,18 @@ bool CMainApplication::CreateAllShaders()
 		"}\n",
 
 		// Fragment Shader
-		"#version 410 core\n"
-		"in mat4 vMatrix;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"   outputColor = vec4(vMatrix[0].xy, 0.0, 1.0);\n"
-		"}\n"
+		raycastShader.c_str()
 		);
+
+	GLint success = 0;
+	glGetShaderiv(m_unSceneProgramID, GL_COMPILE_STATUS, &success);
+	if (success != GL_TRUE)
+	{
+		GLint* logSize = 0;
+		glGetShaderiv(m_unSceneProgramID, GL_INFO_LOG_LENGTH, logSize);
+
+
+	}
 
 	if (m_unSceneProgramID == -1) {
 		dprintf("Failed to compile scene shader\n");
@@ -850,7 +861,6 @@ bool CMainApplication::CreateAllShaders()
 	if( m_nSceneMatrixLocation == -1 )
 	{
 		dprintf( "Unable to find matrix uniform in scene shader\n" );
-		return false;
 	}
 
 	m_unControllerTransformProgramID = CompileGLShader(
@@ -1723,6 +1733,17 @@ void CGLRenderModel::Draw()
 	glDrawElements( GL_TRIANGLES, m_unVertexCount, GL_UNSIGNED_SHORT, 0 );
 
 	glBindVertexArray( 0 );
+}
+
+std::string CMainApplication::LoadRaycastShader()
+{
+	std::string line, text;
+	std::ifstream fis("raycaster.frag");
+	while (std::getline(fis, line)) 
+	{
+		text += line + "\n";
+	}
+	return text;
 }
 
 

@@ -99,6 +99,9 @@
     <ClInclude Include="..\shared\strtools.h" />
     <ClInclude Include="..\shared\Vectors.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="raycaster.frag" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
