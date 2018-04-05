@@ -106,7 +106,8 @@ public:
 
 	Matrix4 GetHMDMatrixProjectionEye( vr::Hmd_Eye nEye );
 	Matrix4 GetHMDMatrixPoseEye( vr::Hmd_Eye nEye );
-	Matrix4 GetCurrentViewProjectionMatrix( vr::Hmd_Eye nEye );
+	Matrix4 GetCurrentViewMatrix( vr::Hmd_Eye nEye );
+	Matrix4 GetCurrentProjectionMatrix( vr::Hmd_Eye nEye );
 	void UpdateHMDMatrixPose();
 
 	Matrix4 ConvertSteamVRMatrixToMatrix4( const vr::HmdMatrix34_t &matPose );
@@ -204,7 +205,8 @@ private: // OpenGL bookkeeping
 	GLuint m_unControllerTransformProgramID;
 	GLuint m_unRenderModelProgramID;
 
-	GLint m_nSceneMatrixLocation;
+	GLint m_nProjectionMatrixLoc;
+	GLint m_nViewMatrixLoc;
 	GLint m_nControllerMatrixLocation;
 	GLint m_nRenderModelMatrixLocation;
 
@@ -269,7 +271,8 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 	, m_glControllerVertBuffer( 0 )
 	, m_unControllerVAO( 0 )
 	, m_unSceneVAO( 0 )
-	, m_nSceneMatrixLocation( -1 )
+	, m_nProjectionMatrixLoc( -1 )
+	, m_nViewMatrixLoc( -1 )
 	, m_nControllerMatrixLocation( -1 )
 	, m_nRenderModelMatrixLocation( -1 )
 	, m_iTrackedControllerCount( 0 )
@@ -833,13 +836,15 @@ bool CMainApplication::CreateAllShaders()
 
 		// Vertex Shader
 		"#version 410\n"
-		"uniform mat4 matrix;\n"
+		"uniform mat4 viewMatrix;\n"
+		"uniform mat4 projectionMatrix;\n"
 		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 2) in vec3 v3NormalIn;\n"
-		"out mat4 vMatrix;\n"
+		"out mat4 vViewMatrix;\n"
+		"out mat4 vProjectionMatrix;\n"
 		"void main()\n"
 		"{\n"
-		"	vMatrix = matrix;\n"
+		"	vViewMatrix = viewMatrix;\n"
+		"	vProjectionMatrix = projectionMatrix;\n"
 		"	gl_Position = vec4(position.xy, 0.0, 1.0);\n"
 		"}\n",
 
@@ -852,10 +857,16 @@ bool CMainApplication::CreateAllShaders()
 		return false;
 	}
 
-	m_nSceneMatrixLocation = glGetUniformLocation( m_unSceneProgramID, "matrix" );
-	if( m_nSceneMatrixLocation == -1 )
+	m_nProjectionMatrixLoc = glGetUniformLocation( m_unSceneProgramID, "projectionMatrix" );
+	m_nViewMatrixLoc = glGetUniformLocation( m_unSceneProgramID, "viewMatrix");
+	if( m_nProjectionMatrixLoc == -1 )
 	{
-		dprintf( "Unable to find matrix uniform in scene shader\n" );
+		dprintf( "Unable to find projectionMatrix uniform in scene shader\n" );
+	}
+
+	if (m_nViewMatrixLoc == -1)
+	{
+		dprintf("Unable to find viewMatrix uniform in scene shader\n");
 	}
 
 	m_unControllerTransformProgramID = CompileGLShader(
@@ -1001,18 +1012,12 @@ void CMainApplication::SetupScene()
 	if ( !m_pHMD )
 		return;
 
-	std::vector<float> vertdataarray;
-	vertdataarray.push_back(-1);
-	vertdataarray.push_back(-1);
-
-	vertdataarray.push_back(-1);
-	vertdataarray.push_back(1);
-
-	vertdataarray.push_back(1);
-	vertdataarray.push_back(1);
-
-	vertdataarray.push_back(1);
-	vertdataarray.push_back(-1);
+	std::vector<float> vertdataarray = {
+		-1, -1,
+		-1,  1,
+		 1,  1,
+		 1, -1
+	};
 	
 	glGenVertexArrays( 1, &m_unSceneVAO );
 	glBindVertexArray( m_unSceneVAO );
@@ -1021,10 +1026,8 @@ void CMainApplication::SetupScene()
 	glBindBuffer( GL_ARRAY_BUFFER, m_glSceneVertBuffer );
 	glBufferData( GL_ARRAY_BUFFER, sizeof(float) * vertdataarray.size(), &vertdataarray[0], GL_STATIC_DRAW);
 
-	uintptr_t offset = 0;
-
 	glEnableVertexAttribArray( 0 );
-	glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, 0 , (const void *)offset);
+	glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, 0 , NULL);
 
 	glBindVertexArray( 0 );
 	glDisableVertexAttribArray(0);
@@ -1315,7 +1318,8 @@ void CMainApplication::RenderScene( vr::Hmd_Eye nEye )
 	if( m_bShowCubes )
 	{
 		glUseProgram( m_unSceneProgramID );
-		glUniformMatrix4fv( m_nSceneMatrixLocation, 1, GL_FALSE, GetCurrentViewProjectionMatrix( nEye ).get() );
+		glUniformMatrix4fv( m_nViewMatrixLoc, 1, GL_FALSE, GetCurrentViewMatrix( nEye ).get() );
+		glUniformMatrix4fv( m_nProjectionMatrixLoc, 1, GL_FALSE, GetCurrentProjectionMatrix(nEye).get());
 		glBindVertexArray( m_unSceneVAO );
 		glDrawArrays( GL_TRIANGLE_FAN, 0, 4 );
 		glBindVertexArray( 0 );
@@ -1328,7 +1332,7 @@ void CMainApplication::RenderScene( vr::Hmd_Eye nEye )
 	{
 		// draw the controller axis lines
 		glUseProgram( m_unControllerTransformProgramID );
-		glUniformMatrix4fv( m_nControllerMatrixLocation, 1, GL_FALSE, GetCurrentViewProjectionMatrix( nEye ).get() );
+		glUniformMatrix4fv( m_nControllerMatrixLocation, 1, GL_FALSE, (GetCurrentProjectionMatrix(nEye) * GetCurrentViewMatrix( nEye )).get() );
 		glBindVertexArray( m_unControllerVAO );
 		glDrawArrays( GL_LINES, 0, m_uiControllerVertcount );
 		glBindVertexArray( 0 );
@@ -1350,7 +1354,7 @@ void CMainApplication::RenderScene( vr::Hmd_Eye nEye )
 			continue;
 
 		const Matrix4 & matDeviceToTracking = m_rmat4DevicePose[ unTrackedDevice ];
-		Matrix4 matMVP = GetCurrentViewProjectionMatrix( nEye ) * matDeviceToTracking;
+		Matrix4 matMVP = GetCurrentProjectionMatrix( nEye ) * GetCurrentViewMatrix(nEye) * matDeviceToTracking;
 		glUniformMatrix4fv( m_nRenderModelMatrixLocation, 1, GL_FALSE, matMVP.get() );
 
 		m_rTrackedDeviceToRenderModel[ unTrackedDevice ]->Draw();
@@ -1435,16 +1439,37 @@ Matrix4 CMainApplication::GetHMDMatrixPoseEye( vr::Hmd_Eye nEye )
 // Purpose: Gets a Current View Projection Matrix with respect to nEye,
 //          which may be an Eye_Left or an Eye_Right.
 //-----------------------------------------------------------------------------
-Matrix4 CMainApplication::GetCurrentViewProjectionMatrix( vr::Hmd_Eye nEye )
+Matrix4 CMainApplication::GetCurrentViewMatrix( vr::Hmd_Eye nEye )
 {
 	Matrix4 matMVP;
 	if( nEye == vr::Eye_Left )
 	{
-		matMVP = m_mat4ProjectionLeft * m_mat4eyePosLeft * m_mat4HMDPose;
+		matMVP =
+			m_mat4eyePosLeft * 
+			m_mat4HMDPose;
 	}
 	else if( nEye == vr::Eye_Right )
 	{
-		matMVP = m_mat4ProjectionRight * m_mat4eyePosRight *  m_mat4HMDPose;
+		matMVP = 
+			m_mat4eyePosRight *  
+			m_mat4HMDPose;
+	}
+
+	return matMVP;
+}
+
+Matrix4 CMainApplication::GetCurrentProjectionMatrix(vr::Hmd_Eye nEye)
+{
+	Matrix4 matMVP;
+	if (nEye == vr::Eye_Left)
+	{
+		matMVP =
+			m_mat4ProjectionLeft;
+	}
+	else if (nEye == vr::Eye_Right)
+	{
+		matMVP =
+			m_mat4ProjectionRight;
 	}
 
 	return matMVP;
