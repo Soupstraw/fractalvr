@@ -207,6 +207,7 @@ private: // OpenGL bookkeeping
 
 	GLint m_nProjectLoc;
 	GLint m_nViewMatrixLoc;
+	GLint m_nProjectionMatrixLoc;
 	GLint m_nScreenSizeLoc;
 	GLint m_nControllerMatrixLocation;
 	GLint m_nRenderModelMatrixLocation;
@@ -274,6 +275,7 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 	, m_unSceneVAO( 0 )
 	, m_nProjectLoc( -1 )
 	, m_nViewMatrixLoc( -1 )
+	, m_nProjectionMatrixLoc( -1 )
 	, m_nScreenSizeLoc( -1 )
 	, m_nControllerMatrixLocation( -1 )
 	, m_nRenderModelMatrixLocation( -1 )
@@ -839,15 +841,18 @@ bool CMainApplication::CreateAllShaders()
 		// Vertex Shader
 		"#version 410\n"
 		"uniform mat4 viewMatrix;\n"
+		"uniform mat4 projectionMatrix;\n"
 		"uniform vec4 project;\n"
 		"uniform vec2 screenSize;\n"
 		"layout(location = 0) in vec4 position;\n"
 		"out mat4 vViewMatrix;\n"
+		"out mat4 vProjectionMatrix;\n"
 		"out vec4 vProject;\n"
 		"out vec2 vScreenSize;\n"
 		"void main()\n"
 		"{\n"
 		"	vViewMatrix = viewMatrix;\n"
+		"	vProjectionMatrix = projectionMatrix;\n"
 		"	vScreenSize = screenSize;\n"
 		"	vProject = project;\n"
 		"	gl_Position = vec4(position.xy, 0.0, 1.0);\n"
@@ -864,6 +869,7 @@ bool CMainApplication::CreateAllShaders()
 
 	m_nProjectLoc = glGetUniformLocation( m_unSceneProgramID, "project" );
 	m_nViewMatrixLoc = glGetUniformLocation( m_unSceneProgramID, "viewMatrix");
+	m_nProjectionMatrixLoc = glGetUniformLocation(m_unSceneProgramID, "projectionMatrix");
 	m_nScreenSizeLoc = glGetUniformLocation( m_unSceneProgramID, "screenSize");
 	if( m_nProjectLoc == -1 )
 	{
@@ -873,6 +879,11 @@ bool CMainApplication::CreateAllShaders()
 	if (m_nViewMatrixLoc == -1)
 	{
 		dprintf("Unable to find viewMatrix uniform in scene shader\n");
+	}
+
+	if (m_nProjectionMatrixLoc == -1)
+	{
+		dprintf("Unable to find projectionMatrix uniform in scene shader\n");
 	}
 
 	m_unControllerTransformProgramID = CompileGLShader(
@@ -1325,9 +1336,10 @@ void CMainApplication::RenderScene( vr::Hmd_Eye nEye )
 	{
 		glUseProgram( m_unSceneProgramID );
 		glUniformMatrix4fv( m_nViewMatrixLoc, 1, GL_FALSE, GetCurrentViewMatrix( nEye ).get() );
+		glUniformMatrix4fv(m_nProjectionMatrixLoc, 1, GL_FALSE, GetCurrentProjectionMatrix(nEye).get());
 		GLfloat pLeft, pRight, pTop, pBottom;
 		m_pHMD->GetProjectionRaw(nEye, &pLeft, &pRight, &pTop, &pBottom);
-		glUniform4f( m_nProjectLoc, pLeft, pRight, pTop, pBottom);
+		glUniform4f(m_nProjectLoc, tan(atan(pLeft)*2), tan(atan(pRight)*2), tan(atan(pTop) * 2), tan(atan(pBottom) * 2));
 		glUniform2f(m_nScreenSizeLoc, m_nRenderWidth, m_nRenderHeight);
 		glBindVertexArray( m_unSceneVAO );
 		glDrawArrays( GL_TRIANGLE_FAN, 0, 4 );

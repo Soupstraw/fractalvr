@@ -1,5 +1,6 @@
 #version 410 core
 in mat4 vViewMatrix;
+in mat4 vProjectionMatrix;
 in vec4 vProjection;
 in vec2 vScreenSize;
 out vec4 outputColor;
@@ -8,11 +9,10 @@ float _MarchThreshold = 0.0001;
 int _Steps = 500;
 float _MarchRange = 1000.0;
 float _Delta = 0.0001;
-vec2 screenSize = vec2(1080, 1200);
 float focalLength = 1.0;
 
 float DE(vec3 pos){
-	return length(pos - vec3(0, 0, 0)) - 1;
+	return length(pos - vec3(0, 0, -5)) - 0.5;
 }
 
 vec3 calculate_normal(vec3 pos) {
@@ -25,14 +25,14 @@ vec3 calculate_normal(vec3 pos) {
 
 void main()
 {
-	vec3 curPos = vViewMatrix[3].xyz;
+	vec4 curPos = inverse(vViewMatrix) * vec4(0,0,0,1);
 
 	float dist;
-	vec2 vpPos = vec2((gl_FragCoord.x / screenSize.x + 1)/2, (gl_FragCoord.y / screenSize.y + 1)/2);
-	vec3 rayDir = -(vViewMatrix * vec4(mix(-vProjection.x, vProjection.y, vpPos.x), mix(-vProjection.z, vProjection.w, vpPos.y), focalLength, 0)).xyz;
+	vec2 vpPos = vec2(gl_FragCoord.x / vScreenSize.x * 2 - 1, gl_FragCoord.y / vScreenSize.y * 2 - 1);
+	vec3 rayDir = normalize(mat3(inverse(vViewMatrix))*(vProjectionMatrix * vec4(vpPos, 1, 0)).xyz);
 	for(int j = 0; j < _Steps; j++){
 		dist = abs(DE(curPos.xyz));
-		curPos += rayDir*dist;
+		curPos.xyz += rayDir*dist;
 		if(dist < _MarchThreshold || dist > _MarchRange) break;
 	}
 
@@ -41,6 +41,6 @@ void main()
 		outputColor = vec4(calculate_normal(curPos.xyz), 1);
 		//outputColor = vec4(rayDir, 1);
 	}else{
-		outputColor = vec4(rayDir, 1);
+		outputColor = vec4(rayDir.xyz, 1);
 	}
 }
