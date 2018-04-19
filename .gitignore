@@ -1,5 +1,5 @@
 .vs/
+.idea/
 build/
 bin/
-hellovr_opengl/.vs/
-hellovr_opengl/Debug/
+cmake-build-debug/

@@ -11,6 +11,8 @@
 #define APIENTRY
 #else
 #include <GL/glu.h>
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
 #endif
 #include <stdio.h>
 #include <sstream>
@@ -122,6 +124,7 @@ private:
 	bool m_bPerf;
 	bool m_bVblank;
 	bool m_bGlFinishHack;
+	bool m_bSteamVR;
 
 	std::string raycastShader;
 	std::string acceleratorShader;
@@ -151,20 +154,10 @@ private: // OpenGL bookkeeping
 	std::string m_strPoseClasses;                            // what classes we saw poses for this frame
 	char m_rDevClassChar[ vr::k_unMaxTrackedDeviceCount ];   // for each device, a character representing its class
 
-	int m_iSceneVolumeWidth;
-	int m_iSceneVolumeHeight;
-	int m_iSceneVolumeDepth;
-	float m_fScaleSpacing;
-	float m_fScale;
-
 	int m_iSceneVolumeInit;                                  // if you want something other than the default 20x20x20
 
 	float m_fNearClip;
 	float m_fFarClip;
-
-	GLuint m_iTexture;
-
-	unsigned int m_uiVertcount;
 
 	GLuint m_glSceneVertBuffer;
 	GLuint m_unSceneVAO;
@@ -181,15 +174,8 @@ private: // OpenGL bookkeeping
 	Matrix4 m_mat4eyePosLeft;
 	Matrix4 m_mat4eyePosRight;
 
-	Matrix4 m_mat4ProjectionCenter;
 	Matrix4 m_mat4ProjectionLeft;
 	Matrix4 m_mat4ProjectionRight;
-
-	struct VertexDataScene
-	{
-		Vector2 position;
-		Vector2 texCoord;
-	};
 
 	struct VertexDataWindow
 	{
@@ -255,6 +241,7 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 	, m_bPerf( false )
 	, m_bVblank( false )
 	, m_bGlFinishHack( true )
+    , m_bSteamVR( true )
 	, m_glControllerVertBuffer( 0 )
 	, m_unControllerVAO( 0 )
 	, m_unSceneVAO( 0 )
@@ -301,6 +288,10 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 			m_iSceneVolumeInit = atoi( argv[ i + 1 ] );
 			i++;
 		}
+		else if ( !strcmp( argv[i], "-nosteamvr"))
+        {
+            m_bSteamVR = false;
+        }
 	}
 
 	// other initialization tasks are done in BInit
@@ -347,31 +338,31 @@ bool CMainApplication::BInit()
 		return false;
 	}
 
-	// Loading the SteamVR Runtime
-	vr::EVRInitError eError = vr::VRInitError_None;
-	m_pHMD = vr::VR_Init( &eError, vr::VRApplication_Scene );
+	if(m_bSteamVR) {
+        // Loading the SteamVR Runtime
+        vr::EVRInitError eError = vr::VRInitError_None;
+        m_pHMD = vr::VR_Init(&eError, vr::VRApplication_Scene);
 
-	if ( eError != vr::VRInitError_None )
-	{
-		m_pHMD = NULL;
-		char buf[1024];
-		printf( "Unable to init VR runtime: %s", vr::VR_GetVRInitErrorAsEnglishDescription( eError ) );
-		SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, "VR_Init Failed", buf, NULL );
-		return false;
-	}
+        if (eError != vr::VRInitError_None) {
+            m_pHMD = NULL;
+            char buf[1024];
+            printf("Unable to init VR runtime: %s", vr::VR_GetVRInitErrorAsEnglishDescription(eError));
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "VR_Init Failed", buf, NULL);
+            return false;
+        }
 
 
-	m_pRenderModels = (vr::IVRRenderModels *)vr::VR_GetGenericInterface( vr::IVRRenderModels_Version, &eError );
-	if( !m_pRenderModels )
-	{
-		m_pHMD = NULL;
-		vr::VR_Shutdown();
+        m_pRenderModels = (vr::IVRRenderModels *) vr::VR_GetGenericInterface(vr::IVRRenderModels_Version, &eError);
+        if (!m_pRenderModels) {
+            m_pHMD = NULL;
+            vr::VR_Shutdown();
 
-		char buf[1024];
-		printf( "Unable to get render model interface: %s", vr::VR_GetVRInitErrorAsEnglishDescription( eError ) );
-		SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, "VR_Init Failed", buf, NULL );
-		return false;
-	}
+            char buf[1024];
+            printf("Unable to get render model interface: %s", vr::VR_GetVRInitErrorAsEnglishDescription(eError));
+            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "VR_Init Failed", buf, NULL);
+            return false;
+        }
+    }
 
 	int nWindowPosX = 700;
 	int nWindowPosY = 100;
@@ -420,25 +411,17 @@ bool CMainApplication::BInit()
 	m_strDriver = "No Driver";
 	m_strDisplay = "No Display";
 
-	m_strDriver = GetTrackedDeviceString( m_pHMD, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String );
-	m_strDisplay = GetTrackedDeviceString( m_pHMD, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String );
+	if(m_bSteamVR) {
+        m_strDriver = GetTrackedDeviceString(m_pHMD, vr::k_unTrackedDeviceIndex_Hmd,
+                                             vr::Prop_TrackingSystemName_String);
+        m_strDisplay = GetTrackedDeviceString(m_pHMD, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String);
+    }
 
 	std::string strWindowTitle = "hellovr - " + m_strDriver + " " + m_strDisplay;
 	SDL_SetWindowTitle( m_pCompanionWindow, strWindowTitle.c_str() );
 
-	// cube array
- 	m_iSceneVolumeWidth = m_iSceneVolumeInit;
- 	m_iSceneVolumeHeight = m_iSceneVolumeInit;
- 	m_iSceneVolumeDepth = m_iSceneVolumeInit;
-
- 	m_fScale = 0.3f;
- 	m_fScaleSpacing = 4.0f;
-
  	m_fNearClip = 0.1f;
  	m_fFarClip = 30.0f;
-
- 	m_iTexture = 0;
- 	m_uiVertcount = 0;
 
 // 		m_MillisecondsTimer.start(1, this);
 // 		m_SecondsTimer.start(1000, this);
@@ -449,7 +432,7 @@ bool CMainApplication::BInit()
 		return false;
 	}
 
-	if (!BInitCompositor())
+	if (m_bSteamVR && !BInitCompositor())
 	{
 		printf("%s - Failed to initialize VR Compositor!\n", __FUNCTION__);
 		return false;
@@ -626,22 +609,21 @@ bool CMainApplication::HandleInput()
 		}
 	}
 
-	// Process SteamVR events
-	vr::VREvent_t event;
-	while( m_pHMD->PollNextEvent( &event, sizeof( event ) ) )
-	{
-		ProcessVREvent( event );
-	}
+	if(m_bSteamVR) {
+        // Process SteamVR events
+        vr::VREvent_t event;
+        while (m_pHMD->PollNextEvent(&event, sizeof(event))) {
+            ProcessVREvent(event);
+        }
 
-	// Process SteamVR controller state
-	for( vr::TrackedDeviceIndex_t unDevice = 0; unDevice < vr::k_unMaxTrackedDeviceCount; unDevice++ )
-	{
-		vr::VRControllerState_t state;
-		if( m_pHMD->GetControllerState( unDevice, &state, sizeof(state) ) )
-		{
-			m_rbShowTrackedDevice[ unDevice ] = state.ulButtonPressed == 0;
-		}
-	}
+        // Process SteamVR controller state
+        for (vr::TrackedDeviceIndex_t unDevice = 0; unDevice < vr::k_unMaxTrackedDeviceCount; unDevice++) {
+            vr::VRControllerState_t state;
+            if (m_pHMD->GetControllerState(unDevice, &state, sizeof(state))) {
+                m_rbShowTrackedDevice[unDevice] = state.ulButtonPressed == 0;
+            }
+        }
+    }
 
 	return bRet;
 }
@@ -699,8 +681,14 @@ void CMainApplication::ProcessVREvent( const vr::VREvent_t & event )
 //-----------------------------------------------------------------------------
 void CMainApplication::RenderFrame()
 {
+    if ( !m_bSteamVR )
+    {
+        RenderStereoTargets();
+        RenderCompanionWindow();
+    }
+
 	// for now as fast as possible
-	if ( m_pHMD )
+	if ( m_bSteamVR && m_pHMD )
 	{
 		RenderControllerAxes();
 		RenderStereoTargets();
@@ -712,7 +700,7 @@ void CMainApplication::RenderFrame()
 		vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture );
 	}
 
-	if ( m_bVblank && m_bGlFinishHack )
+	if ( m_bSteamVR && m_bVblank && m_bGlFinishHack )
 	{
 		//$ HACKHACK. From gpuview profiling, it looks like there is a bug where two renders and a present
 		// happen right before and after the vsync causing all kinds of jittering issues. This glFinish()
@@ -766,33 +754,39 @@ GLuint CMainApplication::CompileGLShader( const char *pchShaderName, const char 
 	glShaderSource( nSceneVertexShader, 1, &pchVertexShader, NULL);
 	glCompileShader( nSceneVertexShader );
 
-	GLint vShaderCompiled = GL_FALSE;
-	glGetShaderiv( nSceneVertexShader, GL_COMPILE_STATUS, &vShaderCompiled);
-	if ( vShaderCompiled != GL_TRUE)
-	{
-		printf("%s - Unable to compile vertex shader %d!\n", pchShaderName, nSceneVertexShader);
-		glDeleteProgram( unProgramID );
-		glDeleteShader( nSceneVertexShader );
-		return 0;
-	}
-	glAttachShader( unProgramID, nSceneVertexShader);
+    GLint success = 0;
+    glGetShaderiv(nSceneVertexShader, GL_COMPILE_STATUS, &success);
+    if (success == GL_FALSE)
+    {
+        printf("Failed to compile vertex shader\n");
+        GLint logSize = 0;
+        glGetShaderiv(nSceneVertexShader, GL_INFO_LOG_LENGTH, &logSize);
+
+        std::vector<GLchar> errorLog(logSize);
+        glGetShaderInfoLog(nSceneVertexShader, logSize, &logSize, &errorLog[0]);
+        printf(errorLog.data());
+
+        return -1;
+    }
+
+    glAttachShader( unProgramID, nSceneVertexShader);
 	glDeleteShader( nSceneVertexShader ); // the program hangs onto this once it's attached
 
 	GLuint  nSceneFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource( nSceneFragmentShader, 1, &pchFragmentShader, NULL);
 	glCompileShader( nSceneFragmentShader );
 
-	GLint success = 0;
+	success = 0;
 	glGetShaderiv(nSceneFragmentShader, GL_COMPILE_STATUS, &success);
 	if (success == GL_FALSE)
 	{
-		printf("Failed to compile scene shader\n");
+		printf("Failed to compile fragment shader\n");
 		GLint logSize = 0;
 		glGetShaderiv(nSceneFragmentShader, GL_INFO_LOG_LENGTH, &logSize);
 
 		std::vector<GLchar> errorLog(logSize);
 		glGetShaderInfoLog(nSceneFragmentShader, logSize, &logSize, &errorLog[0]);
-		printf(reinterpret_cast<char*>(errorLog.data()));
+		printf(errorLog.data());
 
 		return -1;
 	}
@@ -824,7 +818,7 @@ GLuint CMainApplication::CompileGLShader( const char *pchShaderName, const char 
 bool CMainApplication::CreateAllShaders()
 {
 	raycastShader = LoadShader("raycaster.frag");
-	acceleratorShader = LoadShader("accelerator.frag");
+	acceleratorShader = LoadShader("accelerator.glsl");
 
 	m_unSceneProgramID = CompileGLShader(
 		"Scene",
@@ -855,7 +849,6 @@ bool CMainApplication::CreateAllShaders()
 
 	if (m_unSceneProgramID == -1) {
 		printf("Failed to compile scene shader program\n");
-		return false;
 	}
 
 	m_nProjectLoc = glGetUniformLocation( m_unSceneProgramID, "project" );
@@ -894,7 +887,7 @@ bool CMainApplication::CreateAllShaders()
 		"out vec4 vProject;\n"
 		"out vec2 vScreenSize;\n"
 		"out int vKernelSize;\n"
-		"out sampler2D vInputTex;\n"
+		//"out sampler2D vInputTex;\n"
 		"void main()\n"
 		"{\n"
 		"	vViewMatrix = viewMatrix;\n"
@@ -903,7 +896,7 @@ bool CMainApplication::CreateAllShaders()
 		"	vProject = project;\n"
 		"	vKernelSize = kernelSize;\n"
 		"	gl_Position = vec4(position.xy, 0.0, 1.0);\n"
-		"	vInputTex = inputTex;\n"
+		//"	vInputTex = inputTex;\n"
 		"}\n",
 
 		acceleratorShader.c_str()
@@ -937,7 +930,6 @@ bool CMainApplication::CreateAllShaders()
 	if( m_nControllerMatrixLocation == -1 )
 	{
 		printf( "Unable to find matrix uniform in controller shader\n" );
-		return false;
 	}
 
 	m_unRenderModelProgramID = CompileGLShader(
@@ -971,7 +963,6 @@ bool CMainApplication::CreateAllShaders()
 	if( m_nRenderModelMatrixLocation == -1 )
 	{
 		printf( "Unable to find matrix uniform in render model shader\n" );
-		return false;
 	}
 
 	m_unCompanionWindowProgramID = CompileGLShader(
@@ -1011,7 +1002,7 @@ bool CMainApplication::CreateAllShaders()
 //-----------------------------------------------------------------------------
 void CMainApplication::SetupScene()
 {
-	if ( !m_pHMD )
+	if ( m_bSteamVR && !m_pHMD )
 		return;
 
 	std::vector<float> vertdataarray = {
@@ -1207,6 +1198,12 @@ bool CMainApplication::CreateFrameBuffer( int nWidth, int nHeight, FramebufferDe
 //-----------------------------------------------------------------------------
 bool CMainApplication::SetupStereoRenderTargets()
 {
+    if( !m_bSteamVR )
+    {
+        m_nRenderWidth = 512;
+        m_nRenderHeight = 512;
+    }
+
 	if ( !m_pHMD )
 		return false;
 
@@ -1276,50 +1273,45 @@ void CMainApplication::SetupCompanionWindow()
 //-----------------------------------------------------------------------------
 void CMainApplication::RenderStereoTargets()
 {
-	glClearColor( 1.0f, 1.0f, 1.0f, 1.0f );
-	glEnable( GL_MULTISAMPLE );
+    glClearColor( 1.0f, 1.0f, 1.0f, 1.0f );
+    glEnable( GL_MULTISAMPLE );
 
-	// Left Eye
-	glBindFramebuffer( GL_FRAMEBUFFER, leftEyeDesc.m_nRenderFramebufferId );
- 	glViewport(0, 0, m_nRenderWidth/m_nKernelSize, m_nRenderHeight/m_nKernelSize );
-	RenderScene(vr::Eye_Left, m_nRenderWidth / m_nKernelSize, m_nRenderHeight / m_nKernelSize);
+    // Left Eye
+    glBindFramebuffer( GL_FRAMEBUFFER, leftEyeDesc.m_nRenderFramebufferId );
+    glViewport(0, 0, m_nRenderWidth, m_nRenderHeight );
+    RenderScene( vr::Eye_Left, m_nRenderWidth, m_nRenderHeight );
+    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
-	// Second pass
-	glBindFramebuffer(GL_FRAMEBUFFER, leftEyeDesc.m_nAcceleratedFramebufferId);
-	glViewport(0, 0, m_nRenderWidth, m_nRenderHeight);
-	glUseProgram(m_unAcceleratorProgramID);
+    glDisable( GL_MULTISAMPLE );
 
-
-	glDisable( GL_MULTISAMPLE );
-
- 	glBindFramebuffer(GL_READ_FRAMEBUFFER, leftEyeDesc.m_nAcceleratedFramebufferId);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, leftEyeDesc.m_nRenderFramebufferId);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, leftEyeDesc.m_nResolveFramebufferId );
 
-    glBlitFramebuffer( 0, 0, m_nRenderWidth / m_nKernelSize, m_nRenderHeight / m_nKernelSize, 0, 0, m_nRenderWidth / m_nKernelSize, m_nRenderHeight / m_nKernelSize,
-		GL_COLOR_BUFFER_BIT,
- 		GL_LINEAR );
+    glBlitFramebuffer( 0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight,
+                       GL_COLOR_BUFFER_BIT,
+                       GL_LINEAR );
 
- 	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0 );
 
-	glEnable( GL_MULTISAMPLE );
+    glEnable( GL_MULTISAMPLE );
 
-	// Right Eye
-	glBindFramebuffer( GL_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId );
- 	glViewport(0, 0, m_nRenderWidth/m_nKernelSize, m_nRenderHeight/m_nKernelSize );
- 	RenderScene( vr::Eye_Right, m_nRenderWidth / m_nKernelSize, m_nRenderHeight / m_nKernelSize);
- 	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+    // Right Eye
+    glBindFramebuffer( GL_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId );
+    glViewport(0, 0, m_nRenderWidth, m_nRenderHeight );
+    RenderScene( vr::Eye_Right, m_nRenderWidth, m_nRenderHeight );
+    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
-	glDisable( GL_MULTISAMPLE );
+    glDisable( GL_MULTISAMPLE );
 
- 	glBindFramebuffer(GL_READ_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId );
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId );
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, rightEyeDesc.m_nResolveFramebufferId );
 
-    glBlitFramebuffer( 0, 0, m_nRenderWidth/m_nKernelSize, m_nRenderHeight/m_nKernelSize, 0, 0, m_nRenderWidth / m_nKernelSize, m_nRenderHeight / m_nKernelSize,
-		GL_COLOR_BUFFER_BIT,
- 		GL_LINEAR  );
+    glBlitFramebuffer( 0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight,
+                       GL_COLOR_BUFFER_BIT,
+                       GL_LINEAR  );
 
- 	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0 );
 }
 
@@ -1332,13 +1324,17 @@ void CMainApplication::RenderScene( vr::Hmd_Eye nEye, GLint renderWidth, GLint r
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
-	if( m_bShowCubes )
-	{
-		glUseProgram( m_unSceneProgramID );
-		glUniformMatrix4fv( m_nViewMatrixLoc, 1, GL_FALSE, GetCurrentViewMatrix( nEye ).get() );
-		glUniformMatrix4fv(m_nProjectionMatrixLoc, 1, GL_FALSE, GetCurrentProjectionMatrix(nEye).get());
+	if( m_bShowCubes ) {
+        glUseProgram(m_unSceneProgramID);
+        glUniformMatrix4fv(m_nViewMatrixLoc, 1, GL_FALSE, GetCurrentViewMatrix(nEye).get());
+        glUniformMatrix4fv(m_nProjectionMatrixLoc, 1, GL_FALSE, GetCurrentProjectionMatrix(nEye).get());
+
 		GLfloat pLeft, pRight, pTop, pBottom;
-		m_pHMD->GetProjectionRaw(nEye, &pLeft, &pRight, &pTop, &pBottom);
+		if( m_bSteamVR ) {
+            m_pHMD->GetProjectionRaw(nEye, &pLeft, &pRight, &pTop, &pBottom);
+        }else{
+		    pLeft = 1; pRight = 1; pTop = 1; pBottom = 1;
+		}
 		glUniform4f(m_nProjectLoc, tan(atan(pLeft)*2), tan(atan(pRight)*2), tan(atan(pTop) * 2), tan(atan(pBottom) * 2));
 		glUniform2f(m_nScreenSizeLoc, renderWidth, renderHeight);
 		glBindVertexArray( m_unSceneVAO );
@@ -1347,39 +1343,41 @@ void CMainApplication::RenderScene( vr::Hmd_Eye nEye, GLint renderWidth, GLint r
 		glClear(GL_DEPTH_BUFFER_BIT);
 	}
 
-	bool bIsInputCapturedByAnotherProcess = !m_pHMD->IsInputAvailable();
+	if (m_bSteamVR) {
+        bool bIsInputCapturedByAnotherProcess = !m_pHMD->IsInputAvailable();
 
-	if( !bIsInputCapturedByAnotherProcess )
-	{
-		// draw the controller axis lines
-		glUseProgram( m_unControllerTransformProgramID );
-		glUniformMatrix4fv( m_nControllerMatrixLocation, 1, GL_FALSE, (GetCurrentProjectionMatrix(nEye) * GetCurrentViewMatrix( nEye )).get() );
-		glBindVertexArray( m_unControllerVAO );
-		glDrawArrays( GL_LINES, 0, m_uiControllerVertcount );
-		glBindVertexArray( 0 );
-	}
+        if (!bIsInputCapturedByAnotherProcess) {
+            // draw the controller axis lines
+            glUseProgram(m_unControllerTransformProgramID);
+            glUniformMatrix4fv(m_nControllerMatrixLocation, 1, GL_FALSE,
+                               (GetCurrentProjectionMatrix(nEye) * GetCurrentViewMatrix(nEye)).get());
+            glBindVertexArray(m_unControllerVAO);
+            glDrawArrays(GL_LINES, 0, m_uiControllerVertcount);
+            glBindVertexArray(0);
+        }
 
-	// ----- Render Model rendering -----
-	glUseProgram( m_unRenderModelProgramID );
+        // ----- Render Model rendering -----
+        glUseProgram(m_unRenderModelProgramID);
 
-	for( uint32_t unTrackedDevice = 0; unTrackedDevice < vr::k_unMaxTrackedDeviceCount; unTrackedDevice++ )
-	{
-		if( !m_rTrackedDeviceToRenderModel[ unTrackedDevice ] || !m_rbShowTrackedDevice[ unTrackedDevice ] )
-			continue;
+        for (uint32_t unTrackedDevice = 0; unTrackedDevice < vr::k_unMaxTrackedDeviceCount; unTrackedDevice++) {
+            if (!m_rTrackedDeviceToRenderModel[unTrackedDevice] || !m_rbShowTrackedDevice[unTrackedDevice])
+                continue;
 
-		const vr::TrackedDevicePose_t & pose = m_rTrackedDevicePose[ unTrackedDevice ];
-		if( !pose.bPoseIsValid )
-			continue;
+            const vr::TrackedDevicePose_t &pose = m_rTrackedDevicePose[unTrackedDevice];
+            if (!pose.bPoseIsValid)
+                continue;
 
-		if( bIsInputCapturedByAnotherProcess && m_pHMD->GetTrackedDeviceClass( unTrackedDevice ) == vr::TrackedDeviceClass_Controller )
-			continue;
+            if (bIsInputCapturedByAnotherProcess &&
+                m_pHMD->GetTrackedDeviceClass(unTrackedDevice) == vr::TrackedDeviceClass_Controller)
+                continue;
 
-		const Matrix4 & matDeviceToTracking = m_rmat4DevicePose[ unTrackedDevice ];
-		Matrix4 matMVP = GetCurrentProjectionMatrix( nEye ) * GetCurrentViewMatrix(nEye) * matDeviceToTracking;
-		glUniformMatrix4fv( m_nRenderModelMatrixLocation, 1, GL_FALSE, matMVP.get() );
+            const Matrix4 &matDeviceToTracking = m_rmat4DevicePose[unTrackedDevice];
+            Matrix4 matMVP = GetCurrentProjectionMatrix(nEye) * GetCurrentViewMatrix(nEye) * matDeviceToTracking;
+            glUniformMatrix4fv(m_nRenderModelMatrixLocation, 1, GL_FALSE, matMVP.get());
 
-		m_rTrackedDeviceToRenderModel[ unTrackedDevice ]->Draw();
-	}
+            m_rTrackedDeviceToRenderModel[unTrackedDevice]->Draw();
+        }
+    }
 
 	glUseProgram( 0 );
 }
@@ -1462,36 +1460,47 @@ Matrix4 CMainApplication::GetHMDMatrixPoseEye( vr::Hmd_Eye nEye )
 //-----------------------------------------------------------------------------
 Matrix4 CMainApplication::GetCurrentViewMatrix( vr::Hmd_Eye nEye )
 {
-	Matrix4 matMVP;
-	if( nEye == vr::Eye_Left )
-	{
-		matMVP =
-			m_mat4eyePosLeft *
-			m_mat4HMDPose;
-	}
-	else if( nEye == vr::Eye_Right )
-	{
-		matMVP =
-			m_mat4eyePosRight *
-			m_mat4HMDPose;
-	}
 
+    Matrix4 matMVP;
+
+    if(!m_bSteamVR)
+    {
+        matMVP = Matrix4().identity().rotateY(SDL_GetTicks()/10);
+    } else {
+        if (nEye == vr::Eye_Left) {
+            matMVP =
+                    m_mat4eyePosLeft *
+                    m_mat4HMDPose;
+        } else if (nEye == vr::Eye_Right) {
+            matMVP =
+                    m_mat4eyePosRight *
+                    m_mat4HMDPose;
+        }
+    }
 	return matMVP;
 }
 
 Matrix4 CMainApplication::GetCurrentProjectionMatrix(vr::Hmd_Eye nEye)
 {
 	Matrix4 matMVP;
-	if (nEye == vr::Eye_Left)
-	{
-		matMVP =
-			m_mat4ProjectionLeft;
-	}
-	else if (nEye == vr::Eye_Right)
-	{
-		matMVP =
-			m_mat4ProjectionRight;
-	}
+	if(!m_bSteamVR){
+        glm::mat4 glmMat = glm::perspective(glm::radians(80.0), (double) m_nRenderHeight / m_nRenderWidth, (double)m_fNearClip, (double)m_fFarClip);
+        matMVP = Matrix4();
+
+        for (int x = 0; x < 4; ++x) {
+            for (int y = 0; y < 4; ++y) {
+                matMVP[x+4*y] = glmMat[x][y];
+            }
+        }
+	}else {
+        if (nEye == vr::Eye_Left) {
+            matMVP =
+                    m_mat4ProjectionLeft;
+        } else if (nEye == vr::Eye_Right) {
+            matMVP =
+                    m_mat4ProjectionRight;
+        }
+    }
 
 	return matMVP;
 }
@@ -1779,7 +1788,7 @@ void CGLRenderModel::Draw()
 std::string CMainApplication::LoadShader(std::string filename)
 {
 	std::string line, text;
-	std::ifstream fis(filename);
+	std::ifstream fis("shaders/" + filename);
 	while (std::getline(fis, line))
 	{
 		text += line + "\n";

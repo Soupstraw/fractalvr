@@ -3,7 +3,7 @@
 # Cache Variables: (probably not for direct use in your scripts)
 #  OPENVR_INCLUDE_DIR
 #
-# Non-cache variables you might use in your CMakeLists.txt:
+# Non-cache variables you might use in your FindGLM.cmake:
 #  OPENVR_FOUND
 #  OPENVR_INCLUDE_DIRS
 #  OPENVR_PLATFORM - something like Win32, Win64, etc.
