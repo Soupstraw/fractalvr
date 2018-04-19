@@ -947,46 +947,31 @@ void CMainApplication::SetupCompanionWindow()
 //-----------------------------------------------------------------------------
 void CMainApplication::RenderStereoTargets()
 {
-    glClearColor( 1.0f, 1.0f, 1.0f, 1.0f );
-    glEnable( GL_MULTISAMPLE );
+	RenderEye(vr::EVREye::Eye_Left, leftEyeDesc);
+	RenderEye(vr::EVREye::Eye_Right, rightEyeDesc);
+}
 
-    // Left Eye
-    glBindFramebuffer( GL_FRAMEBUFFER, leftEyeDesc.m_nRenderFramebufferId );
-    glViewport(0, 0, m_nRenderWidth, m_nRenderHeight );
-    RenderScene(vr::Eye_Left, m_nRenderWidth, m_nRenderHeight );
-    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+void CMainApplication::RenderEye(vr::EVREye eye, CMainApplication::FramebufferDesc &desc)
+{
+	glClearColor( 1.0f, 1.0f, 1.0f, 1.0f );
+	glEnable( GL_MULTISAMPLE );
 
-    glDisable( GL_MULTISAMPLE );
+	glBindFramebuffer( GL_FRAMEBUFFER, desc.m_nRenderFramebufferId );
+	glViewport(0, 0, m_nRenderWidth, m_nRenderHeight );
+	RenderScene(eye, m_nRenderWidth, m_nRenderHeight );
+	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, leftEyeDesc.m_nRenderFramebufferId);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, leftEyeDesc.m_nResolveFramebufferId );
+	glDisable( GL_MULTISAMPLE );
 
-    glBlitFramebuffer( 0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight,
-                       GL_COLOR_BUFFER_BIT,
-                       GL_LINEAR );
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, desc.m_nRenderFramebufferId);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, desc.m_nResolveFramebufferId );
 
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0 );
+	glBlitFramebuffer( 0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight,
+					   GL_COLOR_BUFFER_BIT,
+					   GL_LINEAR );
 
-    glEnable( GL_MULTISAMPLE );
-
-    // Right Eye
-    glBindFramebuffer( GL_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId );
-    glViewport(0, 0, m_nRenderWidth, m_nRenderHeight );
-    RenderScene(vr::Eye_Right, m_nRenderWidth, m_nRenderHeight );
-    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
-
-    glDisable( GL_MULTISAMPLE );
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId );
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, rightEyeDesc.m_nResolveFramebufferId );
-
-    glBlitFramebuffer( 0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight,
-                       GL_COLOR_BUFFER_BIT,
-                       GL_LINEAR  );
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0 );
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0 );
 }
 
 //-----------------------------------------------------------------------------

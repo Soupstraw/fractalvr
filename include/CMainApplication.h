@@ -168,6 +168,8 @@ private: // OpenGL bookkeeping
                            vr::TrackedPropertyError *peError);
 
     std::string raycastVertShader;
+
+    void RenderEye(vr::EVREye eye, CMainApplication::FramebufferDesc &desc);
 };
 
 #endif //FRACTALVR_CMAINAPPLICATION_H
