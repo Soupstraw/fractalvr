@@ -572,34 +572,29 @@ GLuint CMainApplication::CompileGLShader( const char *pchShaderName, const char 
 //-----------------------------------------------------------------------------
 bool CMainApplication::CreateAllShaders()
 {
-	raycastShader = LoadShader("raycaster.frag");
-	acceleratorShader = LoadShader("accelerator.glsl");
+	raycastFragShader = LoadShader("raycaster.frag");
+	raycastVertShader = LoadShader("raycaster.vert");
+
+	acceleratorFragShader = LoadShader("accelerator.frag");
+	const std::string &acceleratorVertShader = LoadShader("accelerator.vert");
+
+	const std::string &controllerFragShader = LoadShader("controller.frag");
+	const std::string &controllerVertShader = LoadShader("controller.vert");
+
+	const std::string &renderModelFragShader = LoadShader("rendermodel.frag");
+	const std::string &renderModelVertShader = LoadShader("rendermodel.vert");
+
+	const std::string &companionWindowFragShader = LoadShader("companionwindow.frag");
+	const std::string &companionWindowVertShader = LoadShader("companionwindow.vert");
 
 	m_unSceneProgramID = CompileGLShader(
 		"Scene",
 
 		// Vertex Shader
-		"#version 410\n"
-		"uniform mat4 viewMatrix;\n"
-		"uniform mat4 projectionMatrix;\n"
-		"uniform vec4 project;\n"
-		"uniform vec2 screenSize;\n"
-		"layout(location = 0) in vec4 position;\n"
-		"out mat4 vViewMatrix;\n"
-		"out mat4 vProjectionMatrix;\n"
-		"out vec4 vProject;\n"
-		"out vec2 vScreenSize;\n"
-		"void main()\n"
-		"{\n"
-		"	vViewMatrix = viewMatrix;\n"
-		"	vProjectionMatrix = projectionMatrix;\n"
-		"	vScreenSize = screenSize;\n"
-		"	vProject = project;\n"
-		"	gl_Position = vec4(position.xy, 0.0, 1.0);\n"
-		"}\n",
+		raycastVertShader.c_str(),
 
 		// Fragment Shader
-		raycastShader.c_str()
+		raycastFragShader.c_str()
 		);
 
 	if (m_unSceneProgramID == -1) {
@@ -629,57 +624,19 @@ bool CMainApplication::CreateAllShaders()
 		"Accelerator",
 
 		// vertex shader
-		"#version 410\n"
-		"uniform mat4 viewMatrix;\n"
-		"uniform mat4 projectionMatrix;\n"
-		"uniform vec4 project;\n"
-		"uniform vec2 screenSize;\n"
-		"uniform int kernelSize;\n"
-		"uniform sampler2D inputTex;\n"
-		"layout(location = 0) in vec4 position;\n"
-		"out mat4 vViewMatrix;\n"
-		"out mat4 vProjectionMatrix;\n"
-		"out vec4 vProject;\n"
-		"out vec2 vScreenSize;\n"
-		"out int vKernelSize;\n"
-		//"out sampler2D vInputTex;\n"
-		"void main()\n"
-		"{\n"
-		"	vViewMatrix = viewMatrix;\n"
-		"	vProjectionMatrix = projectionMatrix;\n"
-		"	vScreenSize = screenSize;\n"
-		"	vProject = project;\n"
-		"	vKernelSize = kernelSize;\n"
-		"	gl_Position = vec4(position.xy, 0.0, 1.0);\n"
-		//"	vInputTex = inputTex;\n"
-		"}\n",
+		acceleratorVertShader.c_str(),
 
-		acceleratorShader.c_str()
+		acceleratorFragShader.c_str()
 	);
 
 	m_unControllerTransformProgramID = CompileGLShader(
 		"Controller",
 
 		// vertex shader
-		"#version 410\n"
-		"uniform mat4 matrix;\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec3 v3ColorIn;\n"
-		"out vec4 v4Color;\n"
-		"void main()\n"
-		"{\n"
-		"	v4Color.xyz = v3ColorIn; v4Color.a = 1.0;\n"
-		"	gl_Position = matrix * position;\n"
-		"}\n",
+		controllerVertShader.c_str(),
 
 		// fragment shader
-		"#version 410\n"
-		"in vec4 v4Color;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"   outputColor = v4Color;\n"
-		"}\n"
+		controllerFragShader.c_str()
 		);
 	m_nControllerMatrixLocation = glGetUniformLocation( m_unControllerTransformProgramID, "matrix" );
 	if( m_nControllerMatrixLocation == -1 )
@@ -691,27 +648,10 @@ bool CMainApplication::CreateAllShaders()
 		"render model",
 
 		// vertex shader
-		"#version 410\n"
-		"uniform mat4 matrix;\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec3 v3NormalIn;\n"
-		"layout(location = 2) in vec2 v2TexCoordsIn;\n"
-		"out vec2 v2TexCoord;\n"
-		"void main()\n"
-		"{\n"
-		"	v2TexCoord = v2TexCoordsIn;\n"
-		"	gl_Position = matrix * vec4(position.xyz, 1);\n"
-		"}\n",
+		renderModelVertShader.c_str(),
 
 		//fragment shader
-		"#version 410 core\n"
-		"uniform sampler2D diffuse;\n"
-		"in vec2 v2TexCoord;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"   outputColor = texture( diffuse, v2TexCoord);\n"
-		"}\n"
+		renderModelFragShader.c_str()
 
 		);
 	m_nRenderModelMatrixLocation = glGetUniformLocation( m_unRenderModelProgramID, "matrix" );
@@ -724,25 +664,10 @@ bool CMainApplication::CreateAllShaders()
 		"CompanionWindow",
 
 		// vertex shader
-		"#version 410 core\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec2 v2UVIn;\n"
-		"noperspective out vec2 v2UV;\n"
-		"void main()\n"
-		"{\n"
-		"	v2UV = v2UVIn;\n"
-		"	gl_Position = position;\n"
-		"}\n",
+		companionWindowVertShader.c_str(),
 
 		// fragment shader
-		"#version 410 core\n"
-		"uniform sampler2D mytexture;\n"
-		"noperspective in vec2 v2UV;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"		outputColor = texture(mytexture, v2UV);\n"
-		"}\n"
+		companionWindowFragShader.c_str()
 		);
 
 	return m_unSceneProgramID != 0

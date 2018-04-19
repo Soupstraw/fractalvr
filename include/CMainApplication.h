@@ -68,8 +68,8 @@ private:
     bool m_bGlFinishHack;
     bool m_bSteamVR;
 
-    std::__cxx11::string raycastShader;
-    std::__cxx11::string acceleratorShader;
+    std::__cxx11::string raycastFragShader;
+    std::__cxx11::string acceleratorFragShader;
 
     vr::IVRSystem *m_pHMD;
     vr::IVRRenderModels *m_pRenderModels;
@@ -166,6 +166,8 @@ private: // OpenGL bookkeeping
     std::string
     GetTrackedDeviceString(vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop,
                            vr::TrackedPropertyError *peError);
+
+    std::string raycastVertShader;
 };
 
 #endif //FRACTALVR_CMAINAPPLICATION_H
