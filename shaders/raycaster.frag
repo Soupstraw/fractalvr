@@ -1,7 +1,7 @@
 #version 410 core
 in mat4 vViewMatrix;
 in mat4 vProjectionMatrix;
-in vec4 vProjection;
+in vec3 vRayDir;
 in vec2 vScreenSize;
 out vec4 outputColor;
 
@@ -53,13 +53,9 @@ void main()
 	vec4 curPos = inverse(vViewMatrix) * vec4(0,0,0,1);
 
 	float dist;
-	vec2 vpPos = vec2(gl_FragCoord.x / vScreenSize.x * 2 - 1, gl_FragCoord.y / vScreenSize.y * 2 - 1);
-	mat4 rayMat = mat4(1);
-	rayMat[3] = vec4(vpPos, 0, 1);
-	vec3 rayDir = normalize(mat3(inverse(vViewMatrix))*(inverse(vProjectionMatrix) * rayMat)[3].xyz);
 	for(int j = 0; j < _Steps; j++){
 		dist = abs(DE(curPos.xyz));
-		curPos.xyz += rayDir*dist;
+		curPos.xyz += vRayDir*dist;
 		if(dist < _MarchThreshold || dist > _MarchRange) break;
 	}
 
@@ -68,6 +64,6 @@ void main()
 		outputColor = vec4(calculate_normal(curPos.xyz), 1);
 		//outputColor = vec4(rayDir, 1);
 	}else{
-		outputColor = vec4(rayDir.xyz, 1);
+		outputColor = vec4(vRayDir.xyz, 1);
 	}
 }
