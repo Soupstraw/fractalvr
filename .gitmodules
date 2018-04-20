@@ -1,0 +1,3 @@
+[submodule "fractalvr"]
+	path = fractalvr
+	url = https://github.com/Soupstraw/fractalvr.git
