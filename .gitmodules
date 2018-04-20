@@ -1,6 +1,3 @@
-[submodule "fractalvr"]
-	path = fractalvr
-	url = https://github.com/Soupstraw/fractalvr.git
 [submodule "glm"]
 	path = glm
 	url = https://github.com/g-truc/glm
