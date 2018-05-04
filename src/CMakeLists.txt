@@ -21,7 +21,7 @@ include_directories (${OPENVR_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS} ${GLEW_INCLUDE_
 
 add_executable(fractalvr CMainApplication.cpp CGLRenderModel.cpp main.cpp Matrices.cpp)
 target_include_directories (fractalvr PRIVATE ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries (fractalvr -ldl -lGL SDL2 GLEW -lopenvr_api)
+target_link_libraries (fractalvr -ldl -lSDL2 -lGL GLEW -lopenvr_api)
 set_target_properties(fractalvr PROPERTIES LINKER_LANGUAGE CXX)
 
 install (TARGETS fractalvr DESTINATION ${CMAKE_SOURCE_DIR}/bin)

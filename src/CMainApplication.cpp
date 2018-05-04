@@ -10,7 +10,7 @@
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
 #include <GL/glew.h>
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include <hdf5_hl.h>
 #include <zconf.h>
 #include "CMainApplication.h"
@@ -1119,7 +1119,8 @@ Matrix4 CMainApplication::GetCurrentViewMatrix( vr::Hmd_Eye nEye )
 
     if(!m_bSteamVR)
     {
-        matMVP = Matrix4().identity().rotateY(SDL_GetTicks()/10);
+        float time = SDL_GetTicks()/100.0f;
+        matMVP = Matrix4().identity().rotateY(time).translate(0, -1, -5);
     } else {
         if (nEye == vr::Eye_Left) {
             matMVP =

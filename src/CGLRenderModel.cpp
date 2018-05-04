@@ -10,7 +10,7 @@
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
 #include <GL/glew.h>
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include "CGLRenderModel.h"
 
 //-----------------------------------------------------------------------------
