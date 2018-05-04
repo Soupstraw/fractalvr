@@ -1038,6 +1038,12 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye, GLint renderWidth, GLint re
     }
 
 	glUseProgram( 0 );
+	frameCount++;
+
+	if(SDL_GetTicks() - lastFPSPrint > 1000){
+		printf("Avg FPS:%f\n", (float)frameCount/SDL_GetTicks()*1000.0f);
+		lastFPSPrint = SDL_GetTicks();
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -1120,7 +1126,8 @@ Matrix4 CMainApplication::GetCurrentViewMatrix( vr::Hmd_Eye nEye )
     if(!m_bSteamVR)
     {
         float time = SDL_GetTicks()/100.0f;
-        matMVP = Matrix4().identity().rotateY(time).translate(0, -1, -5);
+        //matMVP = Matrix4().identity().rotateY(time).translate(0, -1, -5);
+		matMVP = Matrix4().identity().rotateY(time).translate(0, -1, 0);
     } else {
         if (nEye == vr::Eye_Left) {
             matMVP =

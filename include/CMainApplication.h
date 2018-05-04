@@ -142,6 +142,9 @@ private: // OpenGL bookkeeping
 
     int m_nKernelSize;
 
+    int frameCount = 0;
+    int lastFPSPrint = 0;
+
     struct FramebufferDesc
     {
         GLuint m_nDepthBufferId;
