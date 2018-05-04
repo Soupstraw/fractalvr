@@ -1,9 +1,13 @@
 #version 410 core
+
+precision highp float;
+
 in mat4 vViewMatrix;
 in mat4 vProjectionMatrix;
 in vec3 vRayDir;
 in vec2 vScreenSize;
-out vec4 outputColor;
+
+layout(location = 0) out vec4 outputColor;
 
 float _MarchThreshold = 0.0001;
 int _Steps = 500;
@@ -13,6 +17,7 @@ int Iterations = 4;
 float Bailout = 2;
 float Power = 8;
 float focalLength = 1.0;
+float accelRange = 0.01f;
 
 float DE(vec3 pos) {
 	pos -= vec3(0, 1, 0);
@@ -52,18 +57,37 @@ void main()
 {
 	vec4 curPos = inverse(vViewMatrix) * vec4(0,0,0,1);
 
+    float rayDist = 0f;
 	float dist;
+	float prevDist = 9999f;
+	float accelDist = 0f;
+	bool accelFinished = false;
+	// Raymarch iteration
 	for(int j = 0; j < _Steps; j++){
 		dist = abs(DE(curPos.xyz));
 		curPos.xyz += vRayDir*dist;
+		rayDist += dist;
+		// Ray acceleration calculations
+		if(!accelFinished){
+            float a = 0.5f * dist * dist / prevDist;
+            float newAccelDist = rayDist - a;
+            float intersectionRadius = sqrt(dist*dist-a);
+            if(accelRange * newAccelDist < intersectionRadius){
+                accelDist = newAccelDist;
+                prevDist = dist;
+            }else{
+                accelFinished = true;
+            }
+		}
 		if(dist < _MarchThreshold || dist > _MarchRange) break;
 	}
 
-	float lumi = clamp(dot(calculate_normal(curPos.xyz), normalize(vec3(-0.5, -0.5, -0.5))), 0, 1);
+	// Check for hit
 	if(dist < _MarchThreshold){
-		//outputColor = vec4(calculate_normal(curPos.xyz), 1);
-		outputColor = lumi*vec4(1);
+	    float lumi = clamp(dot(calculate_normal(curPos.xyz), normalize(vec3(-0.5, -0.5, -0.5))), 0, 1);
+		outputColor = vec4(lumi*vec3(1), accelDist/_MarchRange);
 	}else{
-		outputColor = vec4(vRayDir.xyz, 1);
+		outputColor = vec4(vRayDir.xyz, accelDist/_MarchRange);
 	}
+	//outputColor = vec4(1, 0, 1, 1);
 }

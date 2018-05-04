@@ -24,6 +24,8 @@ void ThreadSleep( unsigned long nMilliseconds )
 #endif
 }
 
+GLenum drawBuffers[] = {GL_COLOR_ATTACHMENT0};
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Constructor
@@ -48,7 +50,6 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 	, m_glControllerVertBuffer( 0 )
 	, m_unControllerVAO( 0 )
 	, m_unSceneVAO( 0 )
-	, m_nProjectLoc( -1 )
 	, m_nViewMatrixLoc( -1 )
 	, m_nProjectionMatrixLoc( -1 )
 	, m_nScreenSizeLoc( -1 )
@@ -61,7 +62,7 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 	, m_iValidPoseCount_Last( -1 )
 	, m_iSceneVolumeInit( 20 )
 	, m_strPoseClasses("")
-	, m_bShowCubes( true )
+	, m_bUseAcceleration( true )
 {
 
 	for( int i = 1; i < argc; i++ )
@@ -304,16 +305,16 @@ void CMainApplication::Shutdown()
 		glDeleteRenderbuffers( 1, &leftEyeDesc.m_nDepthBufferId );
 		glDeleteTextures( 1, &leftEyeDesc.m_nRenderTextureId );
 		glDeleteFramebuffers( 1, &leftEyeDesc.m_nRenderFramebufferId );
-		glDeleteTextures(1, &leftEyeDesc.m_nAcceleratedTextureId);
-		glDeleteFramebuffers(1, &leftEyeDesc.m_nAcceleratedFramebufferId);
+		glDeleteTextures(1, &leftEyeDesc.m_nAcceleratorTextureId);
+		glDeleteFramebuffers(1, &leftEyeDesc.m_nAcceleratorFramebufferId);
 		glDeleteTextures( 1, &leftEyeDesc.m_nResolveTextureId );
 		glDeleteFramebuffers( 1, &leftEyeDesc.m_nResolveFramebufferId );
 
 		glDeleteRenderbuffers( 1, &rightEyeDesc.m_nDepthBufferId );
 		glDeleteTextures( 1, &rightEyeDesc.m_nRenderTextureId );
 		glDeleteFramebuffers( 1, &rightEyeDesc.m_nRenderFramebufferId );
-		glDeleteTextures(1, &rightEyeDesc.m_nAcceleratedTextureId);
-		glDeleteFramebuffers(1, &rightEyeDesc.m_nAcceleratedFramebufferId);
+		glDeleteTextures(1, &rightEyeDesc.m_nAcceleratorTextureId);
+		glDeleteFramebuffers(1, &rightEyeDesc.m_nAcceleratorFramebufferId);
 		glDeleteTextures( 1, &rightEyeDesc.m_nResolveTextureId );
 		glDeleteFramebuffers( 1, &rightEyeDesc.m_nResolveFramebufferId );
 
@@ -363,7 +364,7 @@ bool CMainApplication::HandleInput()
 			}
 			if( sdlEvent.key.keysym.sym == SDLK_c )
 			{
-				m_bShowCubes = !m_bShowCubes;
+				m_bUseAcceleration = !m_bUseAcceleration;
 			}
 		}
 	}
@@ -522,7 +523,7 @@ GLuint CMainApplication::CompileGLShader( const char *pchShaderName, const char 
         glGetShaderInfoLog(nSceneVertexShader, logSize, &logSize, &errorLog[0]);
         printf(errorLog.data());
 
-        return -1;
+        return 0;
     }
 
     glAttachShader( unProgramID, nSceneVertexShader);
@@ -544,7 +545,7 @@ GLuint CMainApplication::CompileGLShader( const char *pchShaderName, const char 
 		glGetShaderInfoLog(nSceneFragmentShader, logSize, &logSize, &errorLog[0]);
 		printf(errorLog.data());
 
-		return -1;
+		return 0;
 	}
 
 	glAttachShader( unProgramID, nSceneFragmentShader );
@@ -601,14 +602,9 @@ bool CMainApplication::CreateAllShaders()
 		printf("Failed to compile scene shader program\n");
 	}
 
-	m_nProjectLoc = glGetUniformLocation( m_unSceneProgramID, "project" );
 	m_nViewMatrixLoc = glGetUniformLocation( m_unSceneProgramID, "viewMatrix");
 	m_nProjectionMatrixLoc = glGetUniformLocation(m_unSceneProgramID, "projectionMatrix");
 	m_nScreenSizeLoc = glGetUniformLocation( m_unSceneProgramID, "screenSize");
-	if( m_nProjectLoc == -1 )
-	{
-		printf( "Unable to find project uniform in scene shader\n" );
-	}
 
 	if (m_nViewMatrixLoc == -1)
 	{
@@ -628,6 +624,10 @@ bool CMainApplication::CreateAllShaders()
 
 		acceleratorFragShader.c_str()
 	);
+	m_nAcceleratorViewMatrixLoc = glGetUniformLocation( m_unAcceleratorProgramID, "viewMatrix");
+	m_nAcceleratorProjectionMatrixLoc = glGetUniformLocation(m_unAcceleratorProgramID, "projectionMatrix");
+	m_nAcceleratorScreenSizeLoc = glGetUniformLocation( m_unAcceleratorProgramID, "screenSize");
+	m_nAcceleratorTextureLoc = glGetUniformLocation(m_unAcceleratorProgramID, "mainTex");
 
 	m_unControllerTransformProgramID = CompileGLShader(
 		"Controller",
@@ -827,38 +827,42 @@ bool CMainApplication::CreateFrameBuffer( int nWidth, int nHeight, FramebufferDe
 	glGenFramebuffers(1, &framebufferDesc.m_nRenderFramebufferId );
 	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.m_nRenderFramebufferId);
 
-	glGenRenderbuffers(1, &framebufferDesc.m_nDepthBufferId);
-	glBindRenderbuffer(GL_RENDERBUFFER, framebufferDesc.m_nDepthBufferId);
-	glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT, nWidth, nHeight );
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,	framebufferDesc.m_nDepthBufferId );
-
 	glGenTextures(1, &framebufferDesc.m_nRenderTextureId );
-	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.m_nRenderTextureId );
-	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA8, nWidth/m_nKernelSize, nHeight/m_nKernelSize, true);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.m_nRenderTextureId, 0);
+	glBindTexture(GL_TEXTURE_2D, framebufferDesc.m_nRenderTextureId );
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferDesc.m_nRenderTextureId, 0);
 
-	glGenFramebuffers(1, &framebufferDesc.m_nAcceleratedFramebufferId);
-	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.m_nAcceleratedFramebufferId);
+	glGenFramebuffers(1, &framebufferDesc.m_nAcceleratorFramebufferId);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.m_nAcceleratorFramebufferId);
 
-	glGenTextures(1, &framebufferDesc.m_nAcceleratedTextureId );
-	glBindTexture(GL_TEXTURE_2D, framebufferDesc.m_nAcceleratedTextureId );
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glGenTextures(1, &framebufferDesc.m_nAcceleratorTextureId );
+	glBindTexture(GL_TEXTURE_2D, framebufferDesc.m_nAcceleratorTextureId );
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, nWidth/m_nKernelSize, nHeight/m_nKernelSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, nWidth, nHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferDesc.m_nAcceleratedTextureId, 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, framebufferDesc.m_nAcceleratorTextureId, 0);
+	glDrawBuffers(1, drawBuffers);
+
+    // check FBO status
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (status != GL_FRAMEBUFFER_COMPLETE)
+    {
+        printf("Framebuffer creation failed: %i\n", status);
+        return false;
+    }
 
 	glGenFramebuffers(1, &framebufferDesc.m_nResolveFramebufferId );
 	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.m_nResolveFramebufferId);
 
 	glGenTextures(1, &framebufferDesc.m_nResolveTextureId );
 	glBindTexture(GL_TEXTURE_2D, framebufferDesc.m_nResolveTextureId );
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, nWidth, nHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferDesc.m_nResolveTextureId, 0);
 
 	// check FBO status
-	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if (status != GL_FRAMEBUFFER_COMPLETE)
 	{
 		return false;
@@ -869,6 +873,21 @@ bool CMainApplication::CreateFrameBuffer( int nWidth, int nHeight, FramebufferDe
 	return true;
 }
 
+int highestPowerof2(int n)
+{
+	int res = 0;
+	for (int i=n; i>=1; i--)
+	{
+		// If i is a power of 2
+		if ((i & (i-1)) == 0)
+		{
+			res = i;
+			break;
+		}
+	}
+	return res;
+}
+
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
@@ -876,14 +895,15 @@ bool CMainApplication::SetupStereoRenderTargets()
 {
     if( !m_bSteamVR )
     {
-        m_nRenderWidth = 512;
-        m_nRenderHeight = 512;
+        m_nRenderWidth = highestPowerof2(m_nCompanionWindowWidth/2);
+        m_nRenderHeight = highestPowerof2(m_nCompanionWindowHeight);
+    }else{
+        if (!m_pHMD )
+            return false;
+
+        if (m_pHMD)
+            m_pHMD->GetRecommendedRenderTargetSize( &m_nRenderWidth, &m_nRenderHeight );
     }
-
-	if ( !m_pHMD )
-		return false;
-
-	m_pHMD->GetRecommendedRenderTargetSize( &m_nRenderWidth, &m_nRenderHeight );
 
 	CreateFrameBuffer( m_nRenderWidth, m_nRenderHeight, leftEyeDesc );
 	CreateFrameBuffer( m_nRenderWidth, m_nRenderHeight, rightEyeDesc );
@@ -949,29 +969,61 @@ void CMainApplication::RenderStereoTargets()
 {
 	RenderEye(vr::EVREye::Eye_Left, leftEyeDesc);
 	RenderEye(vr::EVREye::Eye_Right, rightEyeDesc);
+
+	// Calculate avg FPS
+	frameCount++;
+
+	if(SDL_GetTicks() - lastFPSPrint > 1000){
+		printf("Avg FPS:%f\n", (float)frameCount/SDL_GetTicks()*1000.0f);
+		lastFPSPrint = SDL_GetTicks();
+	}
 }
 
 void CMainApplication::RenderEye(vr::EVREye eye, CMainApplication::FramebufferDesc &desc)
 {
 	glClearColor( 1.0f, 1.0f, 1.0f, 1.0f );
-	glEnable( GL_MULTISAMPLE );
 
-	glBindFramebuffer( GL_FRAMEBUFFER, desc.m_nRenderFramebufferId );
-	glViewport(0, 0, m_nRenderWidth, m_nRenderHeight );
-	RenderScene(eye, m_nRenderWidth, m_nRenderHeight );
-	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+	if(m_bUseAcceleration){
+		int renderWidth = m_nRenderWidth/m_nKernelSize;
+		int renderHeight = m_nRenderHeight/m_nKernelSize;
 
-	glDisable( GL_MULTISAMPLE );
+		// Render a smaller image to the accelerator texture
+        //printf("%i\n", desc.m_nAcceleratorFramebufferId);
+		glBindFramebuffer( GL_FRAMEBUFFER, desc.m_nAcceleratorFramebufferId);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, desc.m_nAcceleratorTextureId, 0);
+		glViewport(0, 0, renderWidth, renderHeight);
+		RenderScene(eye, renderWidth, renderHeight);
 
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, desc.m_nRenderFramebufferId);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, desc.m_nResolveFramebufferId );
+		// Bind the texture
+		glBindFramebuffer( GL_FRAMEBUFFER, desc.m_nRenderFramebufferId);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, desc.m_nAcceleratorTextureId);
+		glActiveTexture(GL_TEXTURE0);
 
-	glBlitFramebuffer( 0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight,
-					   GL_COLOR_BUFFER_BIT,
-					   GL_LINEAR );
+		// Start rendering the final image
+		glUseProgram(m_unAcceleratorProgramID);
 
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0 );
+		// Set uniforms
+		glUniformMatrix4fv(m_nAcceleratorViewMatrixLoc, 1, GL_FALSE, GetCurrentViewMatrix(eye).get());
+		glUniformMatrix4fv(m_nAcceleratorProjectionMatrixLoc, 1, GL_FALSE, GetCurrentProjectionMatrix(eye).get());
+		glUniform1i(m_nAcceleratorTextureLoc, 1);
+		glUniform2f(m_nAcceleratorScreenSizeLoc, m_nRenderWidth, m_nRenderHeight);
+
+		// Render
+        glBindFramebuffer( GL_FRAMEBUFFER, 0);
+		glViewport(0, 0, m_nRenderWidth, m_nRenderHeight);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glBindVertexArray( m_unSceneVAO );
+		glDrawArrays( GL_TRIANGLE_FAN, 0, 4 );
+		glBindVertexArray( 0 );
+
+	}else {
+		glBindFramebuffer( GL_FRAMEBUFFER, desc.m_nResolveFramebufferId );
+		glViewport(0, 0, m_nRenderWidth, m_nRenderHeight);
+
+		RenderScene(eye, m_nRenderWidth, m_nRenderHeight );
+		glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -979,27 +1031,16 @@ void CMainApplication::RenderEye(vr::EVREye eye, CMainApplication::FramebufferDe
 //-----------------------------------------------------------------------------
 void CMainApplication::RenderScene(vr::Hmd_Eye nEye, GLint renderWidth, GLint renderHeight )
 {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_DEPTH_TEST);
+	glClear(GL_COLOR_BUFFER_BIT);
 
-	if( m_bShowCubes ) {
-        glUseProgram(m_unSceneProgramID);
-        glUniformMatrix4fv(m_nViewMatrixLoc, 1, GL_FALSE, GetCurrentViewMatrix(nEye).get());
-        glUniformMatrix4fv(m_nProjectionMatrixLoc, 1, GL_FALSE, GetCurrentProjectionMatrix(nEye).get());
+	glUseProgram(m_unSceneProgramID);
+	glUniformMatrix4fv(m_nViewMatrixLoc, 1, GL_FALSE, GetCurrentViewMatrix(nEye).get());
+	glUniformMatrix4fv(m_nProjectionMatrixLoc, 1, GL_FALSE, GetCurrentProjectionMatrix(nEye).get());
 
-		GLfloat pLeft, pRight, pTop, pBottom;
-		if( m_bSteamVR ) {
-            m_pHMD->GetProjectionRaw(nEye, &pLeft, &pRight, &pTop, &pBottom);
-        }else{
-		    pLeft = 1; pRight = 1; pTop = 1; pBottom = 1;
-		}
-		glUniform4f(m_nProjectLoc, tan(atan(pLeft)*2), tan(atan(pRight)*2), tan(atan(pTop) * 2), tan(atan(pBottom) * 2));
-		glUniform2f(m_nScreenSizeLoc, renderWidth, renderHeight);
-		glBindVertexArray( m_unSceneVAO );
-		glDrawArrays( GL_TRIANGLE_FAN, 0, 4 );
-		glBindVertexArray( 0 );
-		glClear(GL_DEPTH_BUFFER_BIT);
-	}
+	glUniform2f(m_nScreenSizeLoc, renderWidth, renderHeight);
+	glBindVertexArray( m_unSceneVAO );
+	glDrawArrays( GL_TRIANGLE_FAN, 0, 4 );
+	glBindVertexArray( 0 );
 
 	if (m_bSteamVR) {
         bool bIsInputCapturedByAnotherProcess = !m_pHMD->IsInputAvailable();
@@ -1038,12 +1079,6 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye, GLint renderWidth, GLint re
     }
 
 	glUseProgram( 0 );
-	frameCount++;
-
-	if(SDL_GetTicks() - lastFPSPrint > 1000){
-		printf("Avg FPS:%f\n", (float)frameCount/SDL_GetTicks()*1000.0f);
-		lastFPSPrint = SDL_GetTicks();
-	}
 }
 
 //-----------------------------------------------------------------------------
@@ -1126,8 +1161,8 @@ Matrix4 CMainApplication::GetCurrentViewMatrix( vr::Hmd_Eye nEye )
     if(!m_bSteamVR)
     {
         float time = SDL_GetTicks()/100.0f;
-        //matMVP = Matrix4().identity().rotateY(time).translate(0, -1, -5);
-		matMVP = Matrix4().identity().rotateY(time).translate(0, -1, 0);
+        matMVP = Matrix4().identity().rotateY(time).translate(0, -1, -5);
+		//matMVP = Matrix4().identity().rotateY(time).translate(0, -1, 0);
     } else {
         if (nEye == vr::Eye_Left) {
             matMVP =
@@ -1356,7 +1391,6 @@ std::__cxx11::string CMainApplication::GetTrackedDeviceString(vr::IVRSystem *pHm
 		return "";
 
 	char *pchBuffer = new char[ unRequiredBufferLen ];
-	unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty( unDevice, prop, pchBuffer, unRequiredBufferLen, peError );
 	std::__cxx11::string sResult = pchBuffer;
 	delete [] pchBuffer;
 	return sResult;

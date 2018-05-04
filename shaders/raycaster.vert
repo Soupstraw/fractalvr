@@ -2,7 +2,6 @@
 
 uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
-uniform vec4 project;
 uniform vec2 screenSize;
 
 layout(location = 0) in vec4 position;
