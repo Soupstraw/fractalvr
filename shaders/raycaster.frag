@@ -59,10 +59,10 @@ void main()
 		if(dist < _MarchThreshold || dist > _MarchRange) break;
 	}
 
-	float lumi = clamp(0, 1, dot(calculate_normal(curPos.xyz), vec3(-0.5, -0.5, -0.5)));
+	float lumi = clamp(dot(calculate_normal(curPos.xyz), normalize(vec3(-0.5, -0.5, -0.5))), 0, 1);
 	if(dist < _MarchThreshold){
-		outputColor = vec4(calculate_normal(curPos.xyz), 1);
-		//outputColor = vec4(rayDir, 1);
+		//outputColor = vec4(calculate_normal(curPos.xyz), 1);
+		outputColor = lumi*vec4(1);
 	}else{
 		outputColor = vec4(vRayDir.xyz, 1);
 	}
