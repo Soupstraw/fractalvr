@@ -15,7 +15,7 @@ out vec4 outputColor;
 
 float _MarchThreshold = 0.0001;
 int _Steps = 500;
-float _MarchRange = 1000.0;
+float _MarchRange = 10.0;
 float _Delta = 0.0001;
 int Iterations = 4;
 float Bailout = 2;
@@ -62,8 +62,26 @@ void main()
 	if(mod(vScreenPos, vec2(3, 3)) == vec2(0)){
         outputColor = texture2D(mainTex, vPosition);
 	}else{
-	    outputColor = vec4(0, 0, 1, 1);
-	    //outputColor = texture2D(mainTex, vPosition);
+	    float headstart = texture2D(mainTex, vPosition).a * _MarchRange;
+
+	    vec4 curPos = inverse(vViewMatrix) * vec4(0,0,0,1) + vec4(headstart * vRayDir, 0);
+
+        float dist;
+        // Raymarch iteration
+        for(int j = 0; j < _Steps; j++){
+            dist = abs(DE(curPos.xyz));
+            curPos.xyz += vRayDir*dist;
+            if(dist < _MarchThreshold || dist > _MarchRange) break;
+        }
+
+
+	    // Check for hit
+        if(dist < _MarchThreshold){
+            float lumi = clamp(dot(calculate_normal(curPos.xyz), normalize(vec3(-0.5, -0.5, -0.5))), 0, 1);
+            outputColor = vec4(lumi*vec3(1), 1);
+        }else{
+            outputColor = vec4(vRayDir.xyz, 1);
+        }
 	}
 	//outputColor = texture2D(mainTex, vec2(0, 0));
 }

@@ -11,7 +11,7 @@ layout(location = 0) out vec4 outputColor;
 
 float _MarchThreshold = 0.0001;
 int _Steps = 500;
-float _MarchRange = 1000.0;
+float _MarchRange = 10.0;
 float _Delta = 0.0001;
 int Iterations = 4;
 float Bailout = 2;
