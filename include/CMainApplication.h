@@ -91,7 +91,7 @@ private: // OpenGL bookkeeping
     int m_iTrackedControllerCount_Last;
     int m_iValidPoseCount;
     int m_iValidPoseCount_Last;
-    bool m_bShowCubes;
+    bool m_bUseAcceleration;
 
     std::__cxx11::string m_strPoseClasses;                            // what classes we saw poses for this frame
     char m_rDevClassChar[ vr::k_unMaxTrackedDeviceCount ];   // for each device, a character representing its class
@@ -133,12 +133,15 @@ private: // OpenGL bookkeeping
     GLuint m_unControllerTransformProgramID;
     GLuint m_unRenderModelProgramID;
 
-    GLint m_nProjectLoc;
     GLint m_nViewMatrixLoc;
     GLint m_nProjectionMatrixLoc;
     GLint m_nScreenSizeLoc;
     GLint m_nControllerMatrixLocation;
     GLint m_nRenderModelMatrixLocation;
+    GLint m_nAcceleratorTextureLoc;
+    GLint m_nAcceleratorViewMatrixLoc;
+    GLint m_nAcceleratorScreenSizeLoc;
+    GLint m_nAcceleratorProjectionMatrixLoc;
 
     int m_nKernelSize;
 
@@ -150,8 +153,8 @@ private: // OpenGL bookkeeping
         GLuint m_nDepthBufferId;
         GLuint m_nRenderTextureId;
         GLuint m_nRenderFramebufferId;
-        GLuint m_nAcceleratedFramebufferId;
-        GLuint m_nAcceleratedTextureId;
+        GLuint m_nAcceleratorFramebufferId;
+        GLuint m_nAcceleratorTextureId;
         GLuint m_nResolveTextureId;
         GLuint m_nResolveFramebufferId;
     };
