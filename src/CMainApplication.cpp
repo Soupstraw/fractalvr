@@ -375,6 +375,9 @@ bool CMainApplication::HandleInput()
 	}
 
 	if(m_bSteamVR) {
+		// TODO: Find out the controller IDs rather than hard-coding
+		float scale = 1;
+
         // Process SteamVR events
         vr::VREvent_t event;
         while (m_pHMD->PollNextEvent(&event, sizeof(event))) {
@@ -395,11 +398,19 @@ bool CMainApplication::HandleInput()
 				// Check for press/release event
 				bool buttonHeld = state.ulButtonPressed != 0;
 				if (buttonHeld != m_rbIsButtonHeld[unDevice]) {
-					std::cout << "Triggered\n";
 					if (buttonHeld) {
 						anchor = device;
 					}
 					m_rbIsButtonHeld[unDevice] = buttonHeld;
+
+					// Save starting distance if both triggers are held
+					if (m_rbIsButtonHeld[3] && m_rbIsButtonHeld[4]) {
+						m_fControllerStartingDistance = Vector3(
+							m_rmat4DevicePose[3][12] - m_rmat4DevicePose[4][12],
+							m_rmat4DevicePose[3][13] - m_rmat4DevicePose[4][13],
+							m_rmat4DevicePose[3][14] - m_rmat4DevicePose[4][14]
+							).length();
+					}
 				}
 
 				if (buttonHeld) {
@@ -411,6 +422,15 @@ bool CMainApplication::HandleInput()
 						);
 					m_rmat4AnchorPose[unDevice] = m_rmat4DevicePose[unDevice];
 					std::cout << anchor - device << "\n";
+
+					scale = Vector3(
+						m_rmat4DevicePose[3][12] - m_rmat4DevicePose[4][12],
+						m_rmat4DevicePose[3][13] - m_rmat4DevicePose[4][13],
+						m_rmat4DevicePose[3][14] - m_rmat4DevicePose[4][14]
+					).length() / m_fControllerStartingDistance;
+					m_mat4FractalTransform[0] = scale;
+					m_mat4FractalTransform[5] = scale;
+					m_mat4FractalTransform[10] = scale;
 				}
             }
         }

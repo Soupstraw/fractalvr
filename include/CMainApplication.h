@@ -80,6 +80,8 @@ private:
 	Matrix4 m_rmat4AnchorPose[ vr::k_unMaxTrackedDeviceCount ];
     bool m_rbIsButtonHeld[ vr::k_unMaxTrackedDeviceCount ];
 
+	float m_fControllerStartingDistance;
+
 private: // SDL bookkeeping
     SDL_Window *m_pCompanionWindow;
     uint32_t m_nCompanionWindowWidth;
