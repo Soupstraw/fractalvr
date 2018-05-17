@@ -2,6 +2,10 @@
 // Created by joosep on 4/20/18.
 //
 
+#if defined(_WIN32)
+	#include "windows.h"
+#endif
+
 #include "Matrices.h"
 #include "lodepng.h"
 #include <openvr.h>
@@ -10,9 +14,9 @@
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
 #include <GL/glew.h>
-#include <SDL2/SDL.h>
-#include <hdf5_hl.h>
-#include <zconf.h>
+#include "SDL.h"
+//#include <hdf5_hl.h>
+//#include <zconf.h>
 #include "CMainApplication.h"
 
 void ThreadSleep( unsigned long nMilliseconds )
@@ -197,7 +201,7 @@ bool CMainApplication::BInit()
         m_strDisplay = GetTrackedDeviceString(m_pHMD, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String, nullptr);
     }
 
-	std::__cxx11::string strWindowTitle = "hellovr - " + m_strDriver + " " + m_strDisplay;
+	std::string strWindowTitle = "hellovr - " + m_strDriver + " " + m_strDisplay;
 	SDL_SetWindowTitle( m_pCompanionWindow, strWindowTitle.c_str() );
 
  	m_fNearClip = 0.1f;
@@ -439,6 +443,7 @@ void CMainApplication::ProcessVREvent( const vr::VREvent_t & event )
 //-----------------------------------------------------------------------------
 void CMainApplication::RenderFrame()
 {
+
     if ( !m_bSteamVR )
     {
         RenderStereoTargets();
@@ -452,10 +457,18 @@ void CMainApplication::RenderFrame()
 		RenderStereoTargets();
 		RenderCompanionWindow();
 
-		vr::Texture_t leftEyeTexture = {(void*)(uintptr_t)leftEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
-		vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture );
-		vr::Texture_t rightEyeTexture = {(void*)(uintptr_t)rightEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
-		vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture );
+		if (m_bUseAcceleration) {
+			vr::Texture_t leftEyeTexture = { (void*)(uintptr_t)leftEyeDesc.m_nAcceleratorTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+			vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture);
+			vr::Texture_t rightEyeTexture = { (void*)(uintptr_t)rightEyeDesc.m_nAcceleratorTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+			vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture);
+		}
+		else {
+			vr::Texture_t leftEyeTexture = { (void*)(uintptr_t)leftEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+			vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture);
+			vr::Texture_t rightEyeTexture = { (void*)(uintptr_t)rightEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+			vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture);
+		}
 	}
 
 	if ( m_bSteamVR && m_bVblank && m_bGlFinishHack )
@@ -916,7 +929,7 @@ bool CMainApplication::SetupStereoRenderTargets()
 //-----------------------------------------------------------------------------
 void CMainApplication::SetupCompanionWindow()
 {
-	if ( !m_pHMD )
+	if ( !m_pHMD && m_bSteamVR )
 		return;
 
 	std::vector<VertexDataWindow> vVerts;
@@ -1093,7 +1106,12 @@ void CMainApplication::RenderCompanionWindow()
 	glUseProgram( m_unCompanionWindowProgramID );
 
 	// render left eye (first half of index array )
-	glBindTexture(GL_TEXTURE_2D, leftEyeDesc.m_nResolveTextureId );
+	if (m_bUseAcceleration) {
+		glBindTexture(GL_TEXTURE_2D, leftEyeDesc.m_nAcceleratorTextureId);
+	}
+	else {
+		glBindTexture(GL_TEXTURE_2D, leftEyeDesc.m_nResolveTextureId);
+	}
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
@@ -1101,7 +1119,12 @@ void CMainApplication::RenderCompanionWindow()
 	glDrawElements( GL_TRIANGLES, m_uiCompanionWindowIndexSize/2, GL_UNSIGNED_SHORT, 0 );
 
 	// render right eye (second half of index array )
-	glBindTexture(GL_TEXTURE_2D, rightEyeDesc.m_nResolveTextureId  );
+	if (m_bUseAcceleration) {
+		glBindTexture(GL_TEXTURE_2D, rightEyeDesc.m_nAcceleratorTextureId);
+	}
+	else {
+		glBindTexture(GL_TEXTURE_2D, rightEyeDesc.m_nResolveTextureId);
+	}
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
@@ -1321,11 +1344,11 @@ void CMainApplication::SetupRenderModelForTrackedDevice( vr::TrackedDeviceIndex_
 		return;
 
 	// try to find a model we've already set up
-	std::__cxx11::string sRenderModelName = GetTrackedDeviceString(m_pHMD, unTrackedDeviceIndex, vr::Prop_RenderModelName_String, nullptr );
+	std::string sRenderModelName = GetTrackedDeviceString(m_pHMD, unTrackedDeviceIndex, vr::Prop_RenderModelName_String, nullptr );
 	CGLRenderModel *pRenderModel = FindOrLoadRenderModel( sRenderModelName.c_str() );
 	if( !pRenderModel )
 	{
-		std::__cxx11::string sTrackingSystemName = GetTrackedDeviceString(m_pHMD, unTrackedDeviceIndex, vr::Prop_TrackingSystemName_String, nullptr );
+		std::string sTrackingSystemName = GetTrackedDeviceString(m_pHMD, unTrackedDeviceIndex, vr::Prop_TrackingSystemName_String, nullptr );
 		printf( "Unable to load render model for tracked device %d (%s.%s)", unTrackedDeviceIndex, sTrackingSystemName.c_str(), sRenderModelName.c_str() );
 	}
 	else
@@ -1369,9 +1392,9 @@ Matrix4 CMainApplication::ConvertSteamVRMatrixToMatrix4( const vr::HmdMatrix34_t
 	return matrixObj;
 }
 
-std::__cxx11::string CMainApplication::LoadShader(std::__cxx11::string filename)
+std::string CMainApplication::LoadShader(std::string filename)
 {
-	std::__cxx11::string line, text;
+	std::string line, text;
 	std::ifstream fis("shaders/" + filename);
 	while (getline(fis, line))
 	{
@@ -1384,14 +1407,15 @@ std::__cxx11::string CMainApplication::LoadShader(std::__cxx11::string filename)
 // Purpose: Helper to get a string from a tracked device property and turn it
 //			into a std::string
 //-----------------------------------------------------------------------------
-std::__cxx11::string CMainApplication::GetTrackedDeviceString(vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError = NULL )
+std::string CMainApplication::GetTrackedDeviceString(vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError = NULL )
 {
-	uint32_t unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty( unDevice, prop, NULL, 0, peError );
-	if( unRequiredBufferLen == 0 )
+	uint32_t unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, NULL, 0, peError);
+	if (unRequiredBufferLen == 0)
 		return "";
 
-	char *pchBuffer = new char[ unRequiredBufferLen ];
-	std::__cxx11::string sResult = pchBuffer;
-	delete [] pchBuffer;
+	char *pchBuffer = new char[unRequiredBufferLen];
+	unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, pchBuffer, unRequiredBufferLen, peError);
+	std::string sResult = pchBuffer;
+	delete[] pchBuffer;
 	return sResult;
 }

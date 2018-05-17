@@ -7,18 +7,18 @@
 
 #include <string>
 #include <openvr.h>
-#include <SDL2/SDL_opengl.h>
+#include "SDL_opengl.h"
 
 class CGLRenderModel
 {
 public:
-    CGLRenderModel( const std::__cxx11::string & sRenderModelName );
+    CGLRenderModel( const std::string & sRenderModelName );
     ~CGLRenderModel();
 
     bool BInit(const vr::RenderModel_t & vrModel, const vr::RenderModel_TextureMap_t & vrDiffuseTexture );
     void Cleanup();
     void Draw();
-    const std::__cxx11::string & GetName() const { return m_sModelName; }
+    const std::string & GetName() const { return m_sModelName; }
 
 private:
     GLuint m_glVertBuffer;
@@ -26,7 +26,7 @@ private:
     GLuint m_glVertArray;
     GLuint m_glTexture;
     GLsizei m_unVertexCount;
-    std::__cxx11::string m_sModelName;
+    std::string m_sModelName;
 };
 
 #endif //FRACTALVR_CGLRENDERMODEL_H

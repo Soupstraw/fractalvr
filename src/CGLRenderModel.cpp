@@ -10,13 +10,13 @@
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
 #include <GL/glew.h>
-#include <SDL2/SDL.h>
+#include "SDL.h"
 #include "CGLRenderModel.h"
 
 //-----------------------------------------------------------------------------
 // Purpose: Create/destroy GL Render Models
 //-----------------------------------------------------------------------------
-CGLRenderModel::CGLRenderModel( const std::__cxx11::string & sRenderModelName )
+CGLRenderModel::CGLRenderModel( const std::string & sRenderModelName )
 	: m_sModelName( sRenderModelName )
 {
 	m_glIndexBuffer = 0;

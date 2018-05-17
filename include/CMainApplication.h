@@ -44,7 +44,7 @@ public:
     void RenderStereoTargets();
     void RenderCompanionWindow();
     void RenderScene(vr::Hmd_Eye nEye, GLint renderWidth, GLint renderHeight );
-    std::__cxx11::string LoadShader(std::__cxx11::string filename);
+    std::string LoadShader(std::string filename);
 
     Matrix4 GetHMDMatrixProjectionEye( vr::Hmd_Eye nEye );
     Matrix4 GetHMDMatrixPoseEye( vr::Hmd_Eye nEye );
@@ -68,13 +68,13 @@ private:
     bool m_bGlFinishHack;
     bool m_bSteamVR;
 
-    std::__cxx11::string raycastFragShader;
-    std::__cxx11::string acceleratorFragShader;
+    std::string raycastFragShader;
+    std::string acceleratorFragShader;
 
     vr::IVRSystem *m_pHMD;
     vr::IVRRenderModels *m_pRenderModels;
-    std::__cxx11::string m_strDriver;
-    std::__cxx11::string m_strDisplay;
+    std::string m_strDriver;
+    std::string m_strDisplay;
     vr::TrackedDevicePose_t m_rTrackedDevicePose[ vr::k_unMaxTrackedDeviceCount ];
     Matrix4 m_rmat4DevicePose[ vr::k_unMaxTrackedDeviceCount ];
     bool m_rbShowTrackedDevice[ vr::k_unMaxTrackedDeviceCount ];
@@ -93,7 +93,7 @@ private: // OpenGL bookkeeping
     int m_iValidPoseCount_Last;
     bool m_bUseAcceleration;
 
-    std::__cxx11::string m_strPoseClasses;                            // what classes we saw poses for this frame
+    std::string m_strPoseClasses;                            // what classes we saw poses for this frame
     char m_rDevClassChar[ vr::k_unMaxTrackedDeviceCount ];   // for each device, a character representing its class
 
     int m_iSceneVolumeInit;                                  // if you want something other than the default 20x20x20
