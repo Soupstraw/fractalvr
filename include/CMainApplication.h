@@ -77,7 +77,8 @@ private:
     std::string m_strDisplay;
     vr::TrackedDevicePose_t m_rTrackedDevicePose[ vr::k_unMaxTrackedDeviceCount ];
     Matrix4 m_rmat4DevicePose[ vr::k_unMaxTrackedDeviceCount ];
-    bool m_rbShowTrackedDevice[ vr::k_unMaxTrackedDeviceCount ];
+	Matrix4 m_rmat4AnchorPose[ vr::k_unMaxTrackedDeviceCount ];
+    bool m_rbIsButtonHeld[ vr::k_unMaxTrackedDeviceCount ];
 
 private: // SDL bookkeeping
     SDL_Window *m_pCompanionWindow;
@@ -111,6 +112,8 @@ private: // OpenGL bookkeeping
     GLuint m_glControllerVertBuffer;
     GLuint m_unControllerVAO;
     unsigned int m_uiControllerVertcount;
+
+	Matrix4 m_mat4FractalTransform;
 
     Matrix4 m_mat4HMDPose;
     Matrix4 m_mat4eyePosLeft;

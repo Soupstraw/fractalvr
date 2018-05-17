@@ -67,6 +67,7 @@ CMainApplication::CMainApplication( int argc, char *argv[] )
 	, m_iSceneVolumeInit( 20 )
 	, m_strPoseClasses("")
 	, m_bUseAcceleration( true )
+	, m_mat4FractalTransform( Matrix4().identity() )
 {
 
 	for( int i = 1; i < argc; i++ )
@@ -382,9 +383,35 @@ bool CMainApplication::HandleInput()
 
         // Process SteamVR controller state
         for (vr::TrackedDeviceIndex_t unDevice = 0; unDevice < vr::k_unMaxTrackedDeviceCount; unDevice++) {
+			// Make sure it's a controller
+			if (m_pHMD->GetTrackedDeviceClass(unDevice) != vr::TrackedDeviceClass_Controller)
+				continue;
+
             vr::VRControllerState_t state;
             if (m_pHMD->GetControllerState(unDevice, &state, sizeof(state))) {
-                m_rbShowTrackedDevice[unDevice] = state.ulButtonPressed == 0;
+				Matrix4 anchor = m_rmat4AnchorPose[unDevice];
+				Matrix4 device = m_rmat4DevicePose[unDevice];
+
+				// Check for press/release event
+				bool buttonHeld = state.ulButtonPressed != 0;
+				if (buttonHeld != m_rbIsButtonHeld[unDevice]) {
+					std::cout << "Triggered\n";
+					if (buttonHeld) {
+						anchor = device;
+					}
+					m_rbIsButtonHeld[unDevice] = buttonHeld;
+				}
+
+				if (buttonHeld) {
+					//std::cout << "Button held!\n" << state.ulButtonPressed << "\n";
+					m_mat4FractalTransform = m_mat4FractalTransform.translate(
+						device[12] - anchor[12],
+						device[13] - anchor[13],
+						device[14] - anchor[14]
+						);
+					m_rmat4AnchorPose[unDevice] = m_rmat4DevicePose[unDevice];
+					std::cout << anchor - device << "\n";
+				}
             }
         }
     }
@@ -1047,7 +1074,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye, GLint renderWidth, GLint re
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	glUseProgram(m_unSceneProgramID);
-	glUniformMatrix4fv(m_nViewMatrixLoc, 1, GL_FALSE, GetCurrentViewMatrix(nEye).get());
+	glUniformMatrix4fv(m_nViewMatrixLoc, 1, GL_FALSE, (GetCurrentViewMatrix(nEye)*m_mat4FractalTransform).get());
 	glUniformMatrix4fv(m_nProjectionMatrixLoc, 1, GL_FALSE, GetCurrentProjectionMatrix(nEye).get());
 
 	glUniform2f(m_nScreenSizeLoc, renderWidth, renderHeight);
@@ -1072,7 +1099,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye, GLint renderWidth, GLint re
         glUseProgram(m_unRenderModelProgramID);
 
         for (uint32_t unTrackedDevice = 0; unTrackedDevice < vr::k_unMaxTrackedDeviceCount; unTrackedDevice++) {
-            if (!m_rTrackedDeviceToRenderModel[unTrackedDevice] || !m_rbShowTrackedDevice[unTrackedDevice])
+            if (!m_rTrackedDeviceToRenderModel[unTrackedDevice] || !m_rbIsButtonHeld[unTrackedDevice])
                 continue;
 
             const vr::TrackedDevicePose_t &pose = m_rTrackedDevicePose[unTrackedDevice];
@@ -1354,7 +1381,7 @@ void CMainApplication::SetupRenderModelForTrackedDevice( vr::TrackedDeviceIndex_
 	else
 	{
 		m_rTrackedDeviceToRenderModel[ unTrackedDeviceIndex ] = pRenderModel;
-		m_rbShowTrackedDevice[ unTrackedDeviceIndex ] = true;
+		m_rbIsButtonHeld[ unTrackedDeviceIndex ] = true;
 	}
 }
 
