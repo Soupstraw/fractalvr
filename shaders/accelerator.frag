@@ -21,7 +21,7 @@ int Iterations = 4;
 float Bailout = 2;
 float Power = 8;
 float focalLength = 1.0;
-float accelRange = 0.01f;
+float accelRange = 0.01;
 
 float DE(vec3 pos) {
 	pos -= vec3(0, 1, 0);
