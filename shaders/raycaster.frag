@@ -19,6 +19,7 @@ float Power = 8;
 float focalLength = 1.0;
 float maxRadiusSquared = 1.0;
 float SCALE = 2.0;
+float accelRange = 0.001;
 
 vec4 scalevec = vec4(SCALE, SCALE, SCALE, abs(SCALE)) / maxRadiusSquared;
 float C1 = abs(SCALE-1.0), C2 = pow(abs(SCALE), float(1-Iterations));
