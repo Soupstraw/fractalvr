@@ -3,9 +3,8 @@
 //
 
 #if defined(_WIN32)
-	#include "windows.h"
+#include "windows.h"
 #endif
-
 #include "Matrices.h"
 #include "lodepng.h"
 #include <openvr.h>
@@ -402,15 +401,6 @@ bool CMainApplication::HandleInput()
 						anchor = device;
 					}
 					m_rbIsButtonHeld[unDevice] = buttonHeld;
-
-					// Save starting distance if both triggers are held
-					if (m_rbIsButtonHeld[3] && m_rbIsButtonHeld[4]) {
-						m_fControllerStartingDistance = Vector3(
-							m_rmat4DevicePose[3][12] - m_rmat4DevicePose[4][12],
-							m_rmat4DevicePose[3][13] - m_rmat4DevicePose[4][13],
-							m_rmat4DevicePose[3][14] - m_rmat4DevicePose[4][14]
-							).length();
-					}
 				}
 
 				if (buttonHeld) {
@@ -422,15 +412,6 @@ bool CMainApplication::HandleInput()
 						);
 					m_rmat4AnchorPose[unDevice] = m_rmat4DevicePose[unDevice];
 					std::cout << anchor - device << "\n";
-
-					scale = Vector3(
-						m_rmat4DevicePose[3][12] - m_rmat4DevicePose[4][12],
-						m_rmat4DevicePose[3][13] - m_rmat4DevicePose[4][13],
-						m_rmat4DevicePose[3][14] - m_rmat4DevicePose[4][14]
-					).length() / m_fControllerStartingDistance;
-					m_mat4FractalTransform[0] = scale;
-					m_mat4FractalTransform[5] = scale;
-					m_mat4FractalTransform[10] = scale;
 				}
             }
         }
@@ -1094,7 +1075,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye, GLint renderWidth, GLint re
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	glUseProgram(m_unSceneProgramID);
-	glUniformMatrix4fv(m_nViewMatrixLoc, 1, GL_FALSE, (GetCurrentViewMatrix(nEye)*m_mat4FractalTransform).get());
+	glUniformMatrix4fv(m_nViewMatrixLoc, 1, GL_FALSE, (GetCurrentViewMatrix(nEye) * m_mat4FractalTransform).get());
 	glUniformMatrix4fv(m_nProjectionMatrixLoc, 1, GL_FALSE, GetCurrentProjectionMatrix(nEye).get());
 
 	glUniform2f(m_nScreenSizeLoc, renderWidth, renderHeight);
@@ -1159,6 +1140,7 @@ void CMainApplication::RenderCompanionWindow()
 	else {
 		glBindTexture(GL_TEXTURE_2D, leftEyeDesc.m_nResolveTextureId);
 	}
+
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );

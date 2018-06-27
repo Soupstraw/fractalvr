@@ -17,7 +17,7 @@ void main()
     vProjectionMatrix = projectionMatrix;
     vScreenSize = screenSize;
     mat4 rayMat = mat4(1);
-    rayMat[3] = vec4(position.xy, 0, 1);
+    rayMat[3] = vec4(normalize(vec3(position.xy, 0)), 1);
     vRayDir = normalize(mat3(inverse(vViewMatrix))*(inverse(vProjectionMatrix) * rayMat)[3].xyz);
     gl_Position = vec4(position.xy, 0.0, 1.0);
 }
